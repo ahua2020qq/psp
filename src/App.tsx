@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { Search, Moon, Sun, Bookmark, ArrowLeft } from 'lucide-react';
+import { Search, Moon, Sun, Bookmark, ArrowLeft, Languages } from 'lucide-react';
 import SearchBox from './components/SearchBox';
 import SearchResults from './components/SearchResults';
 import SearchResultSkeleton from './components/SearchResultSkeleton';
@@ -7,11 +7,12 @@ import FavoritesModal from './components/FavoritesModal';
 import { ToastContainer } from './components/Toast';
 import { callLLM, RateLimitError } from './api/llmApi';
 import { getRateLimitInfo } from './utils/rateLimiter';
+import { Language, getTranslations, t } from './utils/i18n';
 
 /**
  * 速率限制显示组件
  */
-function RateLimitDisplay() {
+function RateLimitDisplay({ lang }: { lang: Language }) {
   const [rateInfo, setRateInfo] = useState(getRateLimitInfo());
 
   // 每秒更新一次（用于实时显示配额）
@@ -34,13 +35,13 @@ function RateLimitDisplay() {
       }
     `}>
       <div className="flex items-center gap-2">
-        <span className="font-medium">今日API配额：</span>
+        <span className="font-medium">{t('dailyQuota', lang)}</span>
         <span className={`
           font-bold ${isLowQuota ? 'text-orange-600 dark:text-orange-400' : ''}
         `}>
           {rateInfo.remainingCalls}/30
         </span>
-        <span className="text-xs opacity-70">次</span>
+        <span className="text-xs opacity-70">{t('times', lang)}</span>
       </div>
 
       {/* 进度条 */}
@@ -61,7 +62,7 @@ function RateLimitDisplay() {
 
       {/* 缓存提示 */}
       <span className="text-xs opacity-70">
-        💡 缓存查询不计配额
+        {t('cacheTip', lang)}
       </span>
     </div>
   );
@@ -74,6 +75,18 @@ function App() {
   const [searchResults, setSearchResults] = useState<any>(null);
   const [isLoading, setIsLoading] = useState(false);
   const [toasts, setToasts] = useState<Array<{ id: string; message: string; type?: 'success' | 'cache' }>>([]);
+  const [lang, setLang] = useState<Language>(() => {
+    // 从localStorage读取语言偏好，默认中文
+    const savedLang = localStorage.getItem('psp_language') as Language;
+    return savedLang || 'zh';
+  });
+
+  // 切换语言
+  const toggleLanguage = () => {
+    const newLang = lang === 'zh' ? 'en' : 'zh';
+    setLang(newLang);
+    localStorage.setItem('psp_language', newLang);
+  };
 
   // 显示Toast通知
   const showToast = (message: string, type?: 'success' | 'cache') => {
@@ -173,6 +186,20 @@ function App() {
 
               {/* 右侧操作 */}
               <div className="flex items-center gap-4">
+                {/* 语言切换 */}
+                <button
+                  onClick={toggleLanguage}
+                  className="flex items-center gap-2 px-3 py-2 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors"
+                  aria-label="Switch Language"
+                  title={lang === 'zh' ? 'Switch to English' : '切换到中文'}
+                >
+                  <Languages className="w-5 h-5 text-gray-600 dark:text-gray-300" />
+                  <span className="text-sm font-medium text-gray-700 dark:text-gray-300">
+                    {lang === 'zh' ? '中' : 'EN'}
+                  </span>
+                </button>
+
+                {/* 主题切换 */}
                 <button
                   onClick={() => setIsDarkMode(!isDarkMode)}
                   className="p-2 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors"
@@ -184,12 +211,14 @@ function App() {
                     <Moon className="w-5 h-5 text-gray-600" />
                   )}
                 </button>
+
+                {/* 收藏工具 */}
                 <button
                   onClick={() => setShowFavorites(true)}
                   className="flex items-center gap-2 px-4 py-2 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors"
                 >
                   <Bookmark className="w-5 h-5 text-gray-600 dark:text-gray-300" />
-                  <span className="text-sm text-gray-700 dark:text-gray-300">收藏工具</span>
+                  <span className="text-sm text-gray-700 dark:text-gray-300">{t('favorites', lang)}</span>
                 </button>
               </div>
             </div>
@@ -205,6 +234,7 @@ function App() {
               isLoading={isLoading}
               hasResults={!!searchResults}
               onClear={handleClearSearch}
+              lang={lang}
             />
           </div>
 
@@ -216,7 +246,7 @@ function App() {
                 className="flex items-center gap-2 px-4 py-2 text-gray-600 dark:text-gray-300 hover:text-gray-800 dark:hover:text-gray-100 transition-colors"
               >
                 <ArrowLeft className="w-4 h-4" />
-                返回首页
+                {t('backToHome', lang)}
               </button>
             </div>
           )}
@@ -227,22 +257,22 @@ function App() {
             <SearchResultSkeleton />
           ) : searchResults ? (
             // 搜索结果页面
-            <SearchResults results={searchResults} query={searchQuery} />
+            <SearchResults results={searchResults} query={searchQuery} lang={lang} />
           ) : null}
 
           {/* 页脚广告位 */}
           {!searchResults && (
             <div className="mt-16">
               <div className="bg-gradient-to-r from-blue-50 to-indigo-50 dark:from-gray-800 dark:to-gray-700 rounded-xl p-6 text-center border border-gray-200 dark:border-gray-600">
-                <div className="text-xs text-gray-500 dark:text-gray-400 mb-2">广告</div>
+                <div className="text-xs text-gray-500 dark:text-gray-400 mb-2">{t('ad', lang)}</div>
                 <h3 className="text-lg font-semibold text-gray-800 dark:text-gray-200 mb-2">
-                  云服务器新用户专享优惠
+                  {lang === 'zh' ? '云服务器新用户专享优惠' : 'Cloud Server New User Exclusive Offer'}
                 </h3>
                 <p className="text-gray-600 dark:text-gray-300 mb-3">
-                  1核2G 99元/年 · 高性能云数据库 · 免费迁移服务
+                  {lang === 'zh' ? '1核2G 99元/年 · 高性能云数据库 · 免费迁移服务' : '1 Core 2GB 99 CNY/Year · High-Performance Cloud DB · Free Migration'}
                 </p>
                 <button className="px-6 py-2 bg-[#165DFF] text-white rounded-lg hover:bg-[#0E4FD0] transition-colors">
-                  立即查看
+                  {lang === 'zh' ? '立即查看' : 'Learn More'}
                 </button>
               </div>
             </div>
@@ -255,14 +285,14 @@ function App() {
             <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
               {/* API配额显示 */}
               <div className="mb-4 text-center">
-                <RateLimitDisplay />
+                <RateLimitDisplay lang={lang} />
               </div>
               <div className="text-center text-sm text-gray-600 dark:text-gray-400 space-y-2">
-                <p>资源来源：aliyun镜像 + 官方开源仓库 | 最后更新：2026-01-03</p>
+                <p>{t('source', lang)} | {t('lastUpdate', lang)}</p>
                 <div className="flex justify-center gap-6">
-                  <a href="#" className="hover:text-[#165DFF] transition-colors">关于我们</a>
-                  <a href="#" className="hover:text-[#165DFF] transition-colors">隐私政策</a>
-                  <a href="#" className="hover:text-[#165DFF] transition-colors">广告合作</a>
+                  <a href="#" className="hover:text-[#165DFF] transition-colors">{t('aboutUs', lang)}</a>
+                  <a href="#" className="hover:text-[#165DFF] transition-colors">{t('privacyPolicy', lang)}</a>
+                  <a href="#" className="hover:text-[#165DFF] transition-colors">{t('advertising', lang)}</a>
                 </div>
               </div>
             </div>

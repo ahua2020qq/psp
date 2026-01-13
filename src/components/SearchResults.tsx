@@ -1,13 +1,15 @@
 import React, { useState } from 'react';
 import { Clock, AlertCircle } from 'lucide-react';
 import ToolDetailCard from './ToolDetailCard';
+import { Language, t } from '../utils/i18n';
 
 interface SearchResultsProps {
   results: any;
   query: string;
+  lang: Language;
 }
 
-export default function SearchResults({ results, query }: SearchResultsProps) {
+export default function SearchResults({ results, query, lang }: SearchResultsProps) {
   const [expandedIndex, setExpandedIndex] = useState(0);
 
   return (
@@ -18,7 +20,7 @@ export default function SearchResults({ results, query }: SearchResultsProps) {
           <div className="flex items-center gap-2 text-sm">
             <AlertCircle className="w-4 h-4 text-[#165DFF]" />
             <span className="text-gray-700 dark:text-gray-300">
-              你是不是想找：
+              {lang === 'zh' ? '你是不是想找：' : 'Did you mean: '}
               <span className="font-semibold text-[#165DFF] ml-2">
                 {results.correctedQuery}
               </span>
@@ -32,12 +34,12 @@ export default function SearchResults({ results, query }: SearchResultsProps) {
         <div className="flex items-center gap-2 text-sm text-gray-600 dark:text-gray-400">
           <Clock className="w-4 h-4" />
           <span>
-            找到 <span className="font-semibold text-gray-800 dark:text-gray-200">{results.resultCount}</span> 个相关工具
+            {t('resultsCount', lang)} <span className="font-semibold text-gray-800 dark:text-gray-200">{results.resultCount}</span> {t('searchTime', lang)}
             <span className="text-gray-400 ml-2">({results.searchTime})</span>
           </span>
         </div>
         <div className="text-sm text-gray-500 dark:text-gray-400">
-          搜索意图：{results.searchIntent}
+          {t('searchIntent', lang)}：{results.searchIntent}
         </div>
       </div>
 

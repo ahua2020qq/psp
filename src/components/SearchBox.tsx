@@ -1,17 +1,20 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { Search, X, Loader2 } from 'lucide-react';
 import { addSearchHistory, getSearchHistory } from '../utils/storage';
+import { Language, t } from '../utils/i18n';
 
 interface SearchBoxProps {
   onSearch: (query: string) => void;
   isLoading?: boolean;
   hasResults?: boolean;
   onClear?: () => void;
+  lang: Language;
 }
 
-const POPULAR_SEARCHES = ['Zabbix', 'MySQL', 'Docker', 'Git', 'Prometheus', 'Redis'];
+const POPULAR_SEARCHES_ZH = ['Zabbix', 'MySQL', 'Docker', 'Git', 'Prometheus', 'Redis'];
+const POPULAR_SEARCHES_EN = ['Zabbix', 'MySQL', 'Docker', 'Git', 'Prometheus', 'Redis'];
 
-const SUGGESTIONS = [
+const SUGGESTIONS_ZH = [
   { name: 'Zabbix', desc: '企业级监控工具' },
   { name: 'MySQL', desc: '关系型数据库' },
   { name: 'Docker', desc: '容器化平台' },
@@ -24,10 +27,32 @@ const SUGGESTIONS = [
   { name: 'Jenkins', desc: 'CI/CD工具' }
 ];
 
-export default function SearchBox({ onSearch, isLoading, hasResults, onClear }: SearchBoxProps) {
+const SUGGESTIONS_EN = [
+  { name: 'Zabbix', desc: 'Enterprise Monitoring Tool' },
+  { name: 'MySQL', desc: 'Relational Database' },
+  { name: 'Docker', desc: 'Container Platform' },
+  { name: 'Git', desc: 'Version Control System' },
+  { name: 'Prometheus', desc: 'Cloud-Native Monitoring' },
+  { name: 'Redis', desc: 'Key-Value Store' },
+  { name: 'Nginx', desc: 'Web Server' },
+  { name: 'PostgreSQL', desc: 'Relational Database' },
+  { name: 'Kubernetes', desc: 'Container Orchestration' },
+  { name: 'Jenkins', desc: 'CI/CD Tool' }
+];
+
+export default function SearchBox({ onSearch, isLoading, hasResults, onClear, lang }: SearchBoxProps) {
   const [query, setQuery] = useState('');
   const [showSuggestions, setShowSuggestions] = useState(false);
-  const [filteredSuggestions, setFilteredSuggestions] = useState(SUGGESTIONS);
+  const [filteredSuggestions, setFilteredSuggestions] = useState(
+    lang === 'zh' ? SUGGESTIONS_ZH : SUGGESTIONS_EN
+  );
+  const POPULAR_SEARCHES = lang === 'zh' ? POPULAR_SEARCHES_ZH : POPULAR_SEARCHES_EN;
+  const SUGGESTIONS = lang === 'zh' ? SUGGESTIONS_ZH : SUGGESTIONS_EN;
+
+  // 当语言改变时更新建议
+  useEffect(() => {
+    setFilteredSuggestions(lang === 'zh' ? SUGGESTIONS_ZH : SUGGESTIONS_EN);
+  }, [lang]);
   const inputRef = useRef<HTMLInputElement>(null);
 
   useEffect(() => {
@@ -95,14 +120,14 @@ export default function SearchBox({ onSearch, isLoading, hasResults, onClear }: 
               onChange={(e) => setQuery(e.target.value)}
               onKeyPress={handleKeyPress}
               onFocus={() => !query && setShowSuggestions(false)}
-              placeholder="请输入工具名称（如：zabbix、mysql、golang）"
+              placeholder={t('searchPlaceholder', lang)}
               className="flex-1 mx-4 bg-transparent outline-none text-gray-800 dark:text-gray-100 placeholder-gray-400 text-lg"
             />
             {query && (
               <button
                 onClick={handleClear}
                 className="p-2 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-lg transition-colors"
-                aria-label="清除"
+                aria-label={t('clear', lang)}
               >
                 <X className="w-5 h-5 text-gray-400" />
               </button>
@@ -115,7 +140,7 @@ export default function SearchBox({ onSearch, isLoading, hasResults, onClear }: 
                 disabled={!query.trim()}
                 className="px-6 py-2 bg-[#165DFF] text-white rounded-lg hover:bg-[#0E4FD0] disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
               >
-                搜索
+                {t('searchButton', lang)}
               </button>
             )}
           </div>
@@ -149,7 +174,7 @@ export default function SearchBox({ onSearch, isLoading, hasResults, onClear }: 
       {/* 热门搜索提示 */}
       {!hasResults && !query && (
         <div className="mt-4 text-center">
-          <span className="text-sm text-gray-500 dark:text-gray-400 mr-3">热门搜索：</span>
+          <span className="text-sm text-gray-500 dark:text-gray-400 mr-3">{t('hotSearches', lang)}</span>
           {POPULAR_SEARCHES.map((term, index) => (
             <button
               key={index}
