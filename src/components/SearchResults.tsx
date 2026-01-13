@@ -41,7 +41,7 @@ export default function SearchResults({ results, query, lang }: SearchResultsPro
           </div>
 
           {/* 缓存来源提示 */}
-          {results.fromCache !== undefined && (
+          {(results.fromCache !== undefined || results.debugInfo) && (
             <span className={`
               inline-flex items-center gap-1 px-3 py-1 rounded-full text-xs font-medium
               ${results.fromCache

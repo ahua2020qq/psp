@@ -4,16 +4,22 @@ compatibility_date = "2024-01-01"
 # Cloudflare Pages 配置
 pages_build_output_dir = "build"
 
-# KV命名空间绑定说明
-# 请在 Cloudflare Pages Dashboard 中手动绑定：
-# 1. 进入 Workers & Pages → KV，创建命名空间 TOOL_CACHE
-# 2. 项目 → Settings → Functions → KV Namespace Bindings
-# 3. Add binding:
-#    - Variable name: TOOL_CACHE
-#    - KV Namespace: TOOL_CACHE
-# 4. Save 并重新部署
+# KV命名空间绑定
+# TOOL_CACHE 命名空间 ID
+[[kv_namespaces]]
+binding = "TOOL_CACHE"
+id = "6ac3fd82c746475eb43640852c656fbd"
+preview_id = "6ac3fd82c746475eb43640852c656fbd"
+
+# 环境变量说明
+# 生产环境变量请在 Cloudflare Dashboard 中配置：
+# 1. 项目 → Settings → Environment variables
+# 2. 添加以下变量：
+#    - DEEPSEEK_API_KEY
+#    - VOLC_ARK_API_KEY (可选)
+# 3. 或使用 Secrets (加密变量)
 #
-# 本地开发环境不支持KV，会自动跳过缓存逻辑
+# 本地开发环境变量在 .dev.vars 文件中配置
 
 [vars]
-# 本地开发环境变量（会从.dev.vars读取）
+# 公开变量（非敏感信息）可以在这里定义
