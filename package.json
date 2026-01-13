@@ -61,8 +61,8 @@
     "dev": "npm-run-all --parallel dev:*",
     "dev:vite": "vite",
     "dev:worker": "wrangler dev --port 8788 --local",
-    "build": "vite build",
+    "build": "vite build && node scripts/copy-functions.cjs",
     "preview": "vite preview",
-    "deploy": "npm run build && wrangler pages deploy build"
+    "deploy": "npm run build && npx wrangler pages deploy . --project-name=douya-chat --commit-dirty=true"
   }
 }

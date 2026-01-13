@@ -233,8 +233,12 @@ export async function onRequest(context) {
 
     let result = null;
 
+    // 调试信息：检查KV是否可用
+    const kvAvailable = type === "search" && env.TOOL_CACHE;
+    console.log(`🔍 [DEBUG] KV可用性: ${kvAvailable}, 查询: ${userInput}, 类型: ${type}`);
+
     // 1. 先检查服务器端KV缓存（仅搜索类型）
-    if (type === "search" && env.TOOL_CACHE) {
+    if (kvAvailable) {
       result = await getFromKV(userInput, env);
 
       if (result) {
@@ -244,12 +248,21 @@ export async function onRequest(context) {
         // 添加缓存标记
         cleanResult.fromCache = true;
         cleanResult.cacheAge = result._cachedAt;
+        cleanResult.debugInfo = {
+          kvEnabled: true,
+          cacheHit: true
+        };
 
+        console.log(`✅ [SUCCESS] 服务器缓存命中返回: ${userInput}`);
         return new Response(JSON.stringify(cleanResult), {
           status: 200,
           headers: { "Content-Type": "application/json", "Access-Control-Allow-Origin": "*" }
         });
+      } else {
+        console.log(`❌ [MISS] 服务器缓存未命中: ${userInput}, 将调用LLM`);
       }
+    } else {
+      console.log(`⚠️ [SKIP] KV不可用 - type:${type}, hasKV:${!!env.TOOL_CACHE}`);
     }
 
     // 2. 缓存未命中，调用LLM API
@@ -272,11 +285,19 @@ export async function onRequest(context) {
 
     // 3. 保存到服务器端KV缓存（仅搜索类型）
     if (type === "search" && env.TOOL_CACHE) {
+      console.log(`💾 [SAVE] 准备保存到KV: ${userInput}`);
       await saveToKV(userInput, result, env);
+    } else {
+      console.log(`⚠️ [NOSAVE] 跳过KV保存 - type:${type}, hasKV:${!!env.TOOL_CACHE}`);
     }
 
-    // 添加未缓存标记
+    // 添加未缓存标记和调试信息
     result.fromCache = false;
+    result.debugInfo = {
+      kvEnabled: !!env.TOOL_CACHE,
+      cacheHit: false,
+      cacheKey: kvAvailable ? `${CACHE_KEY_PREFIX}${userInput.toLowerCase()}` : null
+    };
 
     return new Response(JSON.stringify(result), {
       status: 200,

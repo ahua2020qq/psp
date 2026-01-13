@@ -164,6 +164,38 @@ function App() {
     setSearchResults(null);
   };
 
+  // 测试 KV 缓存功能
+  const testKVCache = async () => {
+    console.log('🔍 开始测试 KV 缓存功能...');
+    console.log('='.repeat(50));
+
+    try {
+      // 测试 1: 检查 /api/test-kv 接口
+      console.log('📡 测试 1: 检查 /api/test-kv 接口...');
+      const testKVResponse = await fetch('/api/test-kv');
+      const contentType = testKVResponse.headers.get('content-type');
+      console.log('Content-Type:', contentType);
+
+      if (contentType && contentType.includes('application/json')) {
+        const kvData = await testKVResponse.json();
+        console.log('✅ /api/test-kv 返回 JSON 数据');
+        console.log('KV 绑定状态:', kvData.kvBinding);
+        console.log('已缓存工具数:', kvData.cachedTools.count);
+        alert(`✅ KV API 正常工作！\n\n绑定状态: ${kvData.kvBinding.exists ? '已绑定' : '未绑定'}\n已缓存工具: ${kvData.cachedTools.count} 个\n\n详细信息请查看浏览器控制台（F12）`);
+      } else {
+        console.log('❌ /api/test-kv 返回的不是 JSON');
+        const text = await testKVResponse.text();
+        console.log('返回内容前100字符:', text.substring(0, 100));
+        alert('❌ /api/test-kv 返回 HTML 而不是 JSON\n\nFunctions 未被正确部署！\n\n详细信息请查看浏览器控制台（F12）');
+      }
+    } catch (error) {
+      console.error('❌ 测试失败:', error);
+      alert(`❌ 测试失败: ${error}\n\n详细信息请查看浏览器控制台（F12）`);
+    }
+
+    console.log('='.repeat(50));
+  };
+
   return (
     <div className={isDarkMode ? 'dark' : ''}>
       <div className="min-h-screen bg-[#F5F7FA] dark:bg-[#1E1E2E] transition-colors">
@@ -293,6 +325,16 @@ function App() {
                   <a href="#" className="hover:text-[#165DFF] transition-colors">{t('aboutUs', lang)}</a>
                   <a href="#" className="hover:text-[#165DFF] transition-colors">{t('privacyPolicy', lang)}</a>
                   <a href="#" className="hover:text-[#165DFF] transition-colors">{t('advertising', lang)}</a>
+                  <a
+                    href="#"
+                    onClick={(e) => {
+                      e.preventDefault();
+                      testKVCache();
+                    }}
+                    className="text-xs text-gray-400 hover:text-[#165DFF] transition-colors"
+                  >
+                    🔍 KV缓存调试
+                  </a>
                 </div>
               </div>
             </div>

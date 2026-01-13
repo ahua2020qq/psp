@@ -30,13 +30,38 @@ export default function SearchResults({ results, query, lang }: SearchResultsPro
       )}
 
       {/* 结果统计 */}
-      <div className="flex items-center justify-between">
-        <div className="flex items-center gap-2 text-sm text-gray-600 dark:text-gray-400">
-          <Clock className="w-4 h-4" />
-          <span>
-            {t('resultsCount', lang)} <span className="font-semibold text-gray-800 dark:text-gray-200">{results.resultCount}</span> {t('searchTime', lang)}
-            <span className="text-gray-400 ml-2">({results.searchTime})</span>
-          </span>
+      <div className="flex items-center justify-between flex-wrap gap-2">
+        <div className="flex items-center gap-3">
+          <div className="flex items-center gap-2 text-sm text-gray-600 dark:text-gray-400">
+            <Clock className="w-4 h-4" />
+            <span>
+              {t('resultsCount', lang)} <span className="font-semibold text-gray-800 dark:text-gray-200">{results.resultCount}</span> {t('searchTime', lang)}
+              <span className="text-gray-400 ml-2">({results.searchTime})</span>
+            </span>
+          </div>
+
+          {/* 缓存来源提示 */}
+          {results.fromCache !== undefined && (
+            <span className={`
+              inline-flex items-center gap-1 px-3 py-1 rounded-full text-xs font-medium
+              ${results.fromCache
+                ? 'bg-green-100 dark:bg-green-900/30 text-green-700 dark:text-green-400 border border-green-200 dark:border-green-800'
+                : 'bg-orange-100 dark:bg-orange-900/30 text-orange-700 dark:text-orange-400 border border-orange-200 dark:border-orange-800'
+              }
+            `}>
+              {results.fromCache ? (
+                <>
+                  <span className="w-2 h-2 rounded-full bg-green-500 dark:bg-green-400 animate-pulse"></span>
+                  {lang === 'zh' ? '服务器缓存' : 'Server Cache'}
+                </>
+              ) : (
+                <>
+                  <span className="w-2 h-2 rounded-full bg-orange-500 dark:bg-orange-400"></span>
+                  {lang === 'zh' ? 'AI 实时生成' : 'AI Generated'}
+                </>
+              )}
+            </span>
+          )}
         </div>
         <div className="text-sm text-gray-500 dark:text-gray-400">
           {t('searchIntent', lang)}：{results.searchIntent}
