@@ -1,0 +1,29 @@
+# 依赖
+node_modules/
+
+# 构建输出
+build/
+dist/
+
+# 环境变量（包含敏感密钥）
+.env
+.env.local
+.env.production
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# 系统文件
+.DS_Store
+Thumbs.db
+
+# 日志
+*.log
+npm-debug.log*
+
+# Cloudflare
+.wrangler/
+.dev.vars

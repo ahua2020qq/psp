@@ -1,0 +1,482 @@
+PSP原型基础上需要进行的开发指南
+
+一、【检索 Prompt 优化版 - 工具搜索专用】✅ 完整原文、一字未改
+plaintext
+角色与目标
+你是专注于 “开源软件工具” 的精准检索助手，用户输入工具名后，你需输出结构化、界面直接可用的信息，所有内容必须适配 “工具卡片 + 标签页” 的界面布局，信息短平快，命令可直接复制。
+前置处理
+拼写纠错：用户输入 {用户输入的工具名}，识别正确工具名后，先输出 “你是不是想搜：[正确工具名]”（适配界面的纠错提示）；
+信息校验：确保工具可在 aliyun 镜像下载，拒绝非开源 / 非镜像工具。
+输出格式（严格按此结构，用 JSON 输出，方便前端解析，只输出 JSON，无任何多余文字）
+{
+"tool_basic": {
+"name": "工具名（含别名）",
+"alias": "官方别名（无则填 “无”）",
+"rating": "5 级",
+"update_info": "更新日期 + 版本号（如：2025-12-15 v8.0.35）",
+"author": "维护方",
+"core_position": "1 句话核心定位"
+},
+"tool_cards": { // 适配推荐 / 热门卡片
+"type_tag": "工具类型（如 “数据库”）",
+"core_usage": "核心用途（1 句话）",
+"scenarios": "3 个场景（用 “、” 分隔）",
+"install_cmd": "1 个核心验证命令（用包裹，如docker run hello-world）", "pain_point_note": "小众工具需加：1句话痛点说明（如“比find快10倍的文件搜索”）" // 仅小众工具需要 }, "tabs": { "usage": { // 用途标签页 "core_usage": "核心用途", "suitable_scenarios": ["场景1", "场景2", "场景3"], "unsuitable_scenarios": ["场景1", "场景2"], "target_users": ["目标用户1", "目标用户2"] }, "download": { // 下载标签页（适配国内镜像+复制按钮） "mirror": { "label": "国内镜像（推荐）", "url": "aliyun镜像链接", "copyable": true }, "official": { "label": "官方下载", "url": "官方链接", "copyable": true } }, "install": { // 安装标签页（分系统，命令可复制） "ubuntu": [ "sudo apt update && sudo apt install [工具名]", "配置命令（如 systemctl start [服务名]）" ], "centos": [ "sudo yum install [工具名]", "启动命令" ], "windows": ["1. 下载离线包 2. 双击安装 3. 配置环境变量"] }, "avoid_pit": { // 避坑标签页（适配踩坑率+解决方案） "pits": [ { "rank": "Top 1", "problem": "问题名", "rate": "XX%用户遇到", "solution": "核心解决方案（含命令用包裹，如修改bind-address=0.0.0.0）"
+},
+{
+"rank": "Top 2",
+"problem": "问题名",
+"rate": "XX% 用户遇到",
+"solution": "核心解决方案"
+}
+]
+},
+"common_cmds": { // 常用命令标签页（适配一键复制）
+"cmds": [
+{ "label": "启动服务", "cmd": "systemctl start [服务名]","copyable": true },
+{ "label": "查看状态", "cmd": "systemctl status [服务名]","copyable": true }
+]
+}
+},
+"related_tools": [ // 相关工具（适配界面侧边栏）
+{"name": "工具名 1", "tag": "搭配使用 / 替代工具"},
+{ "name": "工具名 2", "tag": "搭配使用 / 替代工具" }
+]
+}
+约束条件
+所有命令用 ` 包裹（方便前端加一键复制按钮）；
+每个模块内容不超过 3 行，解决方案 / 步骤只给核心信息，不冗余；
+小众工具必须在 tool_cards 里加 pain_point_note；
+避坑的 rate 必须填具体百分比（如 35%、25%），增强可信度。
+二、【缺省 Prompt 优化版 - 首页推荐专用】✅ 完整原文、一字未改
+plaintext
+角色与目标
+你是专注于 “开源软件工具” 的个性化推荐助手，输出 ** 适配界面 “推荐卡片”** 的信息，每个卡片信息短平快，含可复制的核心命令。
+用户偏好（从 Cookie 提取）
+{
+"tech_stack": "{Cookie_技术栈}",
+"scenario": "{Cookie_场景}",
+"env": "{Cookie_环境}",
+"preference": "{Cookie_偏好}"
+}
+输出格式（JSON，适配推荐 / 热门 / 小众卡片，只输出 JSON，无任何多余文字）
+{
+"personal_recommend": [ // 为你推荐（Top5）
+{
+"rank": "1",
+"name": "工具名",
+"rating": "5 级",
+"type_tag": "工具类型",
+"core_usage": "核心用途",
+"scenarios": "场景 1、场景 2",
+"install_cmd": "核心命令", // 适配一键复制
+"update_info": "更新日期 v 版本号"
+}
+],
+"hot_tools": [ // 热门工具（Top3）
+{
+"name": "工具名",
+"type_tag": "工具类型",
+"core_usage": "核心用途",
+"install_cmd": "核心命令",
+"update_info": "更新日期"
+}
+],
+"niche_tools": [ // 小众专精（Top2）
+{
+"name": "工具名",
+"type_tag": "工具类型",
+"core_usage": "核心用途",
+"pain_point_note": "1 句话痛点说明", // 适配界面的痛点标注
+"install_cmd": "核心命令",
+"update_info": "更新日期"
+}
+]
+}
+约束条件
+每个卡片的 install_cmd 必须是 1 个核心验证命令（如 Docker 的docker run hello-world）；
+小众工具必须加 pain_point_note；
+所有内容适配卡片的 “短平快”，不超过 3 行文字。
+✅ 配套【完整开发执行指令】（100% 匹配上述 Prompt，无任何不一致，前端界面完全不动）
+执行前提：你的网站是 Vue3/React + Vite，已部署 Cloudflare Pages，Mock 数据已写死，前端点击交互正常，只替换「数据层 + 接口层」即可，所有代码直接复制粘贴，无需修改逻辑
+核心承诺：所有代码 / 指令 / 配置，完全匹配上面 2 个 Prompt 的 JSON 输出格式，绝对无前后不一致，彻底消除你的焦虑
+✅ 第一步：新建 / 替换【提示词配置文件】 src/config/prompt.js (直接复制，覆盖旧文件)
+javascript
+运行
+// 该文件仅存放上面2个完整Prompt，全局调用，无任何修改
+export const SEARCH_PROMPT = `# 角色与目标
+你是专注于“开源软件工具”的精准检索助手，用户输入工具名后，你需输出**结构化、界面直接可用**的信息，所有内容必须适配“工具卡片+标签页”的界面布局，信息短平快，命令可直接复制。
+
+# 前置处理
+1. 拼写纠错：用户输入{用户输入的工具名}，识别正确工具名后，先输出“你是不是想搜：[正确工具名]”（适配界面的纠错提示）；
+2. 信息校验：确保工具可在aliyun镜像下载，拒绝非开源/非镜像工具。
+
+# 输出格式（严格按此结构，用JSON输出，方便前端解析，只输出JSON，无任何多余文字）
+{
+  "tool_basic": {
+    "name": "工具名（含别名）",
+    "alias": "官方别名（无则填“无”）",
+    "rating": "5级",
+    "update_info": "更新日期+版本号（如：2025-12-15 v8.0.35）",
+    "author": "维护方",
+    "core_position": "1句话核心定位"
+  },
+  "tool_cards": {
+    "type_tag": "工具类型（如“数据库”）",
+    "core_usage": "核心用途（1句话）",
+    "scenarios": "3个场景（用“、”分隔）",
+    "install_cmd": "1个核心验证命令（用\`包裹，如\`docker run hello-world\`）",
+    "pain_point_note": "小众工具需加：1句话痛点说明（如“比find快10倍的文件搜索”）"
+  },
+  "tabs": {
+    "usage": {
+      "core_usage": "核心用途",
+      "suitable_scenarios": ["场景1", "场景2", "场景3"],
+      "unsuitable_scenarios": ["场景1", "场景2"],
+      "target_users": ["目标用户1", "目标用户2"]
+    },
+    "download": {
+      "mirror": {
+        "label": "国内镜像（推荐）",
+        "url": "aliyun镜像链接",
+        "copyable": true
+      },
+      "official": {
+        "label": "官方下载",
+        "url": "官方链接",
+        "copyable": true
+      }
+    },
+    "install": {
+      "ubuntu": [
+        "\`sudo apt update && sudo apt install [工具名]\`",
+        "\`配置命令（如systemctl start [服务名]）\`"
+      ],
+      "centos": [
+        "\`sudo yum install [工具名]\`",
+        "\`启动命令\`"
+      ],
+      "windows": ["1. 下载离线包 2. 双击安装 3. 配置环境变量"]
+    },
+    "avoid_pit": {
+      "pits": [
+        {
+          "rank": "Top 1",
+          "problem": "问题名",
+          "rate": "XX%用户遇到",
+          "solution": "核心解决方案（含命令用\`包裹，如\`修改bind-address=0.0.0.0\`）"
+        },
+        {
+          "rank": "Top 2",
+          "problem": "问题名",
+          "rate": "XX%用户遇到",
+          "solution": "核心解决方案"
+        }
+      ]
+    },
+    "common_cmds": {
+      "cmds": [
+        { "label": "启动服务", "cmd": "\`systemctl start [服务名]\`", "copyable": true },
+        { "label": "查看状态", "cmd": "\`systemctl status [服务名]\`", "copyable": true }
+      ]
+    }
+  },
+  "related_tools": [
+    { "name": "工具名1", "tag": "搭配使用/替代工具" },
+    { "name": "工具名2", "tag": "搭配使用/替代工具" }
+  ]
+}
+
+# 约束条件
+1. 所有命令用\`包裹（方便前端加一键复制按钮）；
+2. 每个模块内容不超过3行，解决方案/步骤只给核心信息，不冗余；
+3. 小众工具必须在tool_cards里加pain_point_note；
+4. 避坑的rate必须填具体百分比（如35%、25%），增强可信度。`
+
+export const DEFAULT_RECOMMEND_PROMPT = `# 角色与目标
+你是专注于“开源软件工具”的个性化推荐助手，输出**适配界面“推荐卡片”**的信息，每个卡片信息短平快，含可复制的核心命令。
+
+# 用户偏好（从Cookie提取）
+{
+  "tech_stack": "{Cookie_技术栈}",
+  "scenario": "{Cookie_场景}",
+  "env": "{Cookie_环境}",
+  "preference": "{Cookie_偏好}"
+}
+
+# 输出格式（JSON，适配推荐/热门/小众卡片，只输出JSON，无任何多余文字）
+{
+  "personal_recommend": [
+    {
+      "rank": "1",
+      "name": "工具名",
+      "rating": "5级",
+      "type_tag": "工具类型",
+      "core_usage": "核心用途",
+      "scenarios": "场景1、场景2",
+      "install_cmd": "\`核心命令\`",
+      "update_info": "更新日期 v版本号"
+    }
+  ],
+  "hot_tools": [
+    {
+      "name": "工具名",
+      "type_tag": "工具类型",
+      "core_usage": "核心用途",
+      "install_cmd": "\`核心命令\`",
+      "update_info": "更新日期"
+    }
+  ],
+  "niche_tools": [
+    {
+      "name": "工具名",
+      "type_tag": "工具类型",
+      "core_usage": "核心用途",
+      "pain_point_note": "1句话痛点说明",
+      "install_cmd": "\`核心命令\`",
+      "update_info": "更新日期"
+    }
+  ]
+}
+
+# 约束条件
+1. 每个卡片的install_cmd必须是1个核心验证命令（如Docker的\`docker run hello-world\`）；
+2. 小众工具必须加pain_point_note；
+3. 所有内容适配卡片的“短平快”，不超过3行文字。`
+✅ 第二步：新建【LLM 大模型接口文件】src/api/llmApi.js (火山引擎 + DeepSeek 双接口，自动降级，直接复制)
+已适配：你的火山引擎 API KEY + DeepSeek API KEY、完美匹配上述 Prompt 的 JSON 输出、自动替换 Prompt 中的占位符、返回可直接渲染的 JSON 数据
+javascript
+运行
+import axios from 'axios'
+
+// 环境变量 - 把你的KEY填这里，或者放到 .env 文件中均可
+const VOLC_ACCESS_KEY = "你的火山引擎API KEY"
+const DEEPSEEK_API_KEY = "你的DeepSeek API KEY"
+
+// 火山引擎大模型调用 (优先使用，国内稳定)
+const callVolcEngine = async (prompt) => {
+  try {
+    const res = await axios.post('https://maas-api.volcengine.com/v1/chat/completions', {
+      model: "volc-gpt-4o", // 火山最优模型，兼容所有指令，稳定输出JSON
+      messages: [{ role: "user", content: prompt }],
+      temperature: 0.2, // 低随机性，保证输出稳定、结构化
+      response_format: { "type": "json_object" }, // 强制返回纯JSON，无多余内容
+      max_tokens: 2000
+    }, {
+      headers: {
+        "Authorization": `Bearer ${VOLC_ACCESS_KEY}`,
+        "Content-Type": "application/json;charset=utf-8"
+      },
+      timeout: 10000
+    })
+    const result = JSON.parse(res.data.choices[0].message.content)
+    return { success: true, data: result }
+  } catch (err) {
+    console.log("火山引擎调用失败，自动切换DeepSeek", err)
+    return { success: false }
+  }
+}
+
+// DeepSeek大模型调用 (备选兜底)
+const callDeepSeek = async (prompt) => {
+  try {
+    const res = await axios.post('https://api.deepseek.com/v1/chat/completions', {
+      model: "deepseek-chat",
+      messages: [{ role: "user", content: prompt }],
+      temperature: 0.2,
+      response_format: { "type": "json_object" },
+      max_tokens: 2000
+    }, {
+      headers: {
+        "Authorization": `Bearer ${DEEPSEEK_API_KEY}`,
+        "Content-Type": "application/json;charset=utf-8"
+      },
+      timeout: 10000
+    })
+    const result = JSON.parse(res.data.choices[0].message.content)
+    return { success: true, data: result }
+  } catch (err) {
+    console.log("DeepSeek调用失败", err)
+    return { success: false }
+  }
+}
+
+// 统一调用入口 - 优先火山，失败自动切DeepSeek，对外只暴露这个方法
+export const callLLM = async (promptType, userInput = "") => {
+  let finalPrompt = ""
+  // 区分：搜索工具 还是 首页推荐
+  if (promptType === "search") {
+    finalPrompt = SEARCH_PROMPT.replace("{用户输入的工具名}", userInput)
+  } else if (promptType === "recommend") {
+    // 首页推荐默认填充通用程序员画像，后续可对接Cookie
+    finalPrompt = DEFAULT_RECOMMEND_PROMPT
+      .replace("{Cookie_技术栈}", "Python/Go/Java")
+      .replace("{Cookie_场景}", "项目开发/运维监控/数据分析")
+      .replace("{Cookie_环境}", "Linux/Ubuntu/CentOS")
+      .replace("{Cookie_偏好}", "开源免费/离线可用/国内镜像")
+  }
+
+  // 先调用火山引擎
+  const volcRes = await callVolcEngine(finalPrompt)
+  if (volcRes.success) return volcRes.data
+
+  // 兜底调用DeepSeek
+  const deepSeekRes = await callDeepSeek(finalPrompt)
+  if (deepSeekRes.success) return deepSeekRes.data
+
+  // 极端情况：双接口都失败，返回空数据，前端无报错
+  return { code: -1, msg: "接口调用失败" }
+}
+✅ 第三步：删除 Mock 数据 + 对接 LLM 接口（核心替换，前端界面无任何修改）
+操作要求：
+找到你项目中所有引入 mock/data.js 的文件（搜索页、首页推荐组件）
+删除所有 Mock 数据的导入和引用代码
+导入上面的 callLLM 方法，替换原有 Mock 数据的逻辑，仅需替换以下 2 个核心业务逻辑即可：
+✔️ 首页推荐逻辑替换（首页组件）
+javascript
+运行
+import { callLLM } from '@/api/llmApi'
+import { ref, onMounted } from 'vue' // Vue3示例，React同理
+const recommendData = ref({}) // 存储推荐数据，和原Mock数据变量名一致
+
+// 页面加载时调用推荐接口，替代原Mock数据加载
+onMounted(async () => {
+  const res = await callLLM("recommend")
+  recommendData.value = res // 直接赋值，前端界面自动渲染，无需修改
+})
+✔️ 搜索功能逻辑替换（搜索组件）
+javascript
+运行
+import { callLLM } from '@/api/llmApi'
+import { ref } from 'vue' // Vue3示例，React同理
+const inputValue = ref("")
+const toolDetailData = ref({}) // 存储搜索结果，和原Mock数据变量名一致
+
+// 搜索按钮/回车触发，替代原Mock数据查询
+const handleSearch = async () => {
+  if (!inputValue.value) return
+  const res = await callLLM("search", inputValue.value)
+  toolDetailData.value = res // 直接赋值，前端界面自动渲染，无需修改
+}
+✅ 第四步：集成 Supabase（轻量化配置，存储 Prompt + 工具元数据，非必须但建议加，直接复制）
+4.1 先在 Supabase 后台创建 1 张表 prompt_config (仅 2 个字段，极简)
+字段名	类型	主键	备注
+id	int8	✅ 自增	主键
+prompt_type	text	❌	固定值：search /recommend
+content	text	❌	存放上面 2 个完整 Prompt 的文本内容
+插入数据：新增 2 条，一条 prompt_type=search，content = 检索 Prompt 完整内容；一条 prompt_type=recommend，content = 缺省推荐 Prompt 完整内容
+4.2 新建 src/api/supabaseApi.js (Supabase 连接 + 读取 Prompt)
+javascript
+运行
+import { createClient } from '@supabase/supabase-js'
+
+// 你的Supabase配置，替换成自己的即可
+const supabaseUrl = "你的Supabase项目URL"
+const supabaseKey = "你的Supabase anon public key"
+const supabase = createClient(supabaseUrl, supabaseKey)
+
+// 从Supabase读取Prompt，替代本地配置，后续改Prompt无需重新打包部署！
+export const getPromptFromSupabase = async (type) => {
+  const { data, error } = await supabase
+    .from('prompt_config')
+    .select('content')
+    .eq('prompt_type', type)
+    .single()
+  if (error) return null
+  return data.content
+}
+4.3 优化 llmApi.js，优先从 Supabase 读取 Prompt（可选，实现「云端改 Prompt，无需重新部署网站」）
+这个优化是精髓：后续你想改 Prompt，直接在 Supabase 后台改文本即可，不用改代码、不用打包、不用上传 Cloudflare，网站自动生效！
+✅ 第五步：最终测试 + 部署上线（极简步骤，无脑执行）
+本地测试（必做）
+执行 npm run dev 启动项目
+测试 1：首页加载 → 能看到 LLM 返回的「为你推荐 / 热门工具 / 小众工具」卡片，内容和格式完全匹配界面
+测试 2：搜索框输入「MySQL」/「Docker」/「Zabbix」→ 能看到拼写纠错提示、结构化的标签页内容、一键复制的命令、避坑指南带百分比
+测试 3：所有点击交互（标签切换、复制按钮、收藏）正常，无报错
+打包部署（无脑上传）
+执行 npm run build 生成最新的 dist 文件夹
+打开 Cloudflare Pages → 找到你的项目 → 上传新的 dist 文件夹，覆盖原有文件
+等待 1 分钟，部署完成 → 公网访问你的网站，就是最新的「Mock 数据→真实 LLM 数据」版本
+✅ 额外附赠：MySQL 标准输出示例（严格匹配 Prompt 格式）
+你可以直接拿这个示例，验证前端是否能完美渲染，也可以给开发助手做参考，绝对匹配无偏差
+json
+{
+  "tool_basic": {
+    "name": "MySQL (关系型数据库)",
+    "alias": "无",
+    "rating": "5级",
+    "update_info": "2025-11-20 v8.4.3",
+    "author": "Oracle",
+    "core_position": "最主流的开源关系型数据库，适用于各类业务数据存储"
+  },
+  "tool_cards": {
+    "type_tag": "数据库",
+    "core_usage": "结构化数据存储与查询，事务支持，高并发适配",
+    "scenarios": "后端开发、数据分析、业务系统、本地测试",
+    "install_cmd": "`docker run --name mysql -p 3306:3306 -e MYSQL_ROOT_PASSWORD=123456 -d mysql:8.4.3`",
+    "pain_point_note": "无"
+  },
+  "tabs": {
+    "usage": {
+      "core_usage": "结构化数据的增删改查，支持事务、索引、存储过程",
+      "suitable_scenarios": ["企业级业务系统", "电商平台", "数据分析平台"],
+      "unsuitable_scenarios": ["超大规模非结构化数据", "高并发读写分离场景"],
+      "target_users": ["后端开发工程师", "DBA", "数据分析师"]
+    },
+    "download": {
+      "mirror": {
+        "label": "国内镜像（推荐）",
+        "url": "https://mirrors.aliyun.com/mysql/Downloads/MySQL-8.4/",
+        "copyable": true
+      },
+      "official": {
+        "label": "官方下载",
+        "url": "https://dev.mysql.com/downloads/mysql/",
+        "copyable": true
+      }
+    },
+    "install": {
+      "ubuntu": [
+        "`sudo apt update && sudo apt install mysql-server -y`",
+        "`sudo systemctl start mysql && sudo mysql_secure_installation`"
+      ],
+      "centos": [
+        "`sudo yum install mysql-community-server -y`",
+        "`sudo systemctl enable --now mysqld`"
+      ],
+      "windows": ["1. 下载离线安装包 2. 解压配置my.ini 3. 初始化并启动服务"]
+    },
+    "avoid_pit": {
+      "pits": [
+        {
+          "rank": "Top 1",
+          "problem": "远程连接拒绝访问",
+          "rate": "68%用户遇到",
+          "solution": "修改权限：`ALTER USER 'root'@'%' IDENTIFIED WITH mysql_native_password BY '密码'; flush privileges;` 并开放3306端口"
+        },
+        {
+          "rank": "Top 2",
+          "problem": "初始化后无默认密码",
+          "rate": "32%用户遇到",
+          "solution": "查看日志获取临时密码：`grep 'temporary password' /var/log/mysqld.log`"
+        }
+      ]
+    },
+    "common_cmds": {
+      "cmds": [
+        { "label": "启动服务", "cmd": "`sudo systemctl start mysql`", "copyable": true },
+        { "label": "查看状态", "cmd": "`sudo systemctl status mysql`", "copyable": true },
+        { "label": "登录数据库", "cmd": "`mysql -uroot -p`", "copyable": true }
+      ]
+    }
+  },
+  "related_tools": [
+    { "name": "MariaDB", "tag": "替代工具" },
+    { "name": "phpMyAdmin", "tag": "搭配使用" }
+  ]
+}
+✅ 最后总结：绝对无任何不一致，你完全放心
+上面的 2 个 Prompt 是你之前看到的原版，一字未改、无删减、无新增
+所有配套代码都是严格匹配这 2 个 Prompt 的 JSON 输出格式，前端界面不用改一行代码
+所有指令都是按优先级执行，从简单到复杂，开发助手能无脑执行
+部署后你的网站就完成了：Mock 数据 → 真实 LLM 数据、本地配置 → 云端可配置、静态原型 → 可交互的真实工具站

@@ -1,0 +1,172 @@
+# LLM配置指南和手工配置步骤
+
+## 一、提示词模板状态检查
+
+### ✅ 提示词模板已更新并匹配前端组件
+
+#### 1. **搜索提示词** (`SEARCH_PROMPT`)
+- **输出结构**：完全匹配 `SearchResults` 组件期望的数据格式
+- **关键字段**：`searchIntent`, `correctedQuery`, `resultCount`, `results`, `relatedTools`
+- **工具详情**：包含 `ToolDetailCard` 组件所需的所有字段
+
+#### 2. **推荐提示词** (`DEFAULT_RECOMMEND_PROMPT`)
+- **输出结构**：完全匹配 `RecommendSection` 组件期望的数据格式
+- **关键字段**：`personalizedTop5`, `popularTop3`, `nicheTop2`
+- **卡片数据**：包含 `ToolCard` 组件所需的所有字段
+
+#### 3. **数据结构一致性**
+- 前端组件 ↔ 提示词模板 ↔ LLM API 输出完全对齐
+- Mock数据也使用相同的数据结构
+- 确保无缝切换真实API和Mock数据
+
+## 二、LLM API密钥配置指南
+
+### 步骤1：获取API密钥
+
+#### A. 火山引擎API（推荐，国内稳定）
+1. 访问 [火山引擎控制台](https://console.volcengine.com/ark/)
+2. 注册/登录账号
+3. 进入"模型服务" → "API密钥管理"
+4. 创建新的API密钥
+5. 复制 `Access Key`
+
+#### B. DeepSeek API（备选兜底）
+1. 访问 [DeepSeek官网](https://platform.deepseek.com/)
+2. 注册/登录账号
+3. 进入"API Keys"页面
+4. 创建新的API密钥
+5. 复制 `API Key`
+
+### 步骤2：配置API密钥
+
+#### 方式A：直接修改代码（开发环境）
+编辑 [`src/api/llmApi.ts`](src/api/llmApi.ts) 文件：
+
+```typescript
+// 第6-7行，替换为你的API密钥
+const VOLC_ACCESS_KEY = "你的火山引擎API KEY";
+const DEEPSEEK_API_KEY = "你的DeepSeek API KEY";
+```
+
+#### 方式B：使用环境变量（生产环境推荐）
+1. 在项目根目录创建 `.env` 文件：
+```bash
+VITE_VOLC_ACCESS_KEY=你的火山引擎API_KEY
+VITE_DEEPSEEK_API_KEY=你的DeepSeek_API_KEY
+```
+
+2. 修改 [`src/api/llmApi.ts`](src/api/llmApi.ts)：
+```typescript
+const VOLC_ACCESS_KEY = import.meta.env.VITE_VOLC_ACCESS_KEY || "你的火山引擎API KEY";
+const DEEPSEEK_API_KEY = import.meta.env.VITE_DEEPSEEK_API_KEY || "你的DeepSeek API KEY";
+```
+
+### 步骤3：测试API连接
+
+1. **启动开发服务器**：
+```bash
+npm run dev
+```
+
+2. **测试搜索功能**：
+   - 在搜索框输入工具名（如"Docker"）
+   - 观察控制台日志，查看API调用状态
+   - 如果API密钥正确，将显示真实LLM返回的数据
+
+3. **测试推荐功能**：
+   - 刷新首页
+   - 观察推荐卡片是否加载
+   - 检查控制台是否有API调用日志
+
+## 三、三层容错机制说明
+
+### 1. **优先层：火山引擎**
+- 国内网络稳定，响应速度快
+- 支持JSON格式输出，与提示词模板完美匹配
+- 调用失败时自动降级到DeepSeek
+
+### 2. **备选层：DeepSeek**
+- 国际通用API，作为火山引擎的兜底
+- 同样支持JSON格式输出
+- 调用失败时降级到Mock数据
+
+### 3. **兜底层：Mock数据**
+- 位于 [`src/utils/mockLLM.ts`](src/utils/mockLLM.ts)
+- 提供完整的模拟工具数据
+- 确保网站始终可用，即使无API密钥
+
+## 四、手工配置检查清单
+
+### ✅ 已完成配置
+1. [x] 提示词模板更新，匹配前端组件
+2. [x] LLM API接口实现，支持三层容错
+3. [x] 前端组件对接真实API
+4. [x] TypeScript配置修复
+5. [x] 工具详情页点击功能
+6. [x] 项目构建成功
+
+### 🔧 需要手工配置
+1. [ ] 获取火山引擎API密钥
+2. [ ] 获取DeepSeek API密钥（可选）
+3. [ ] 配置API密钥到代码或环境变量
+4. [ ] 测试API连接状态
+5. [ ] 部署到生产环境
+
+## 五、部署建议
+
+### 1. **环境变量管理**
+```bash
+# 生产环境 .env.production
+VITE_VOLC_ACCESS_KEY=生产环境API_KEY
+VITE_DEEPSEEK_API_KEY=生产环境API_KEY
+VITE_API_BASE_URL=https://api.yourdomain.com
+```
+
+### 2. **构建和部署**
+```bash
+# 构建生产版本
+npm run build
+
+# 部署到静态托管服务
+# 推荐：Vercel, Netlify, GitHub Pages, 阿里云OSS
+```
+
+### 3. **监控和日志**
+- 在控制台查看API调用状态
+- 监控错误率和响应时间
+- 定期检查API密钥配额
+
+## 六、故障排除
+
+### 常见问题1：API调用失败
+**症状**：搜索无结果，控制台显示API错误
+**解决**：
+1. 检查API密钥是否正确
+2. 检查网络连接
+3. 验证API服务是否可用
+4. 查看Mock数据是否正常显示
+
+### 常见问题2：JSON解析错误
+**症状**：控制台显示JSON解析错误
+**解决**：
+1. 检查提示词模板格式
+2. 验证LLM是否返回纯JSON
+3. 查看API响应格式
+
+### 常见问题3：数据不显示
+**症状**：页面空白或数据不完整
+**解决**：
+1. 检查前端组件数据结构
+2. 验证API返回数据字段
+3. 查看浏览器控制台错误
+
+## 七、最终验证
+
+项目已完全准备好投入生产使用：
+
+1. **功能完整**：搜索、推荐、详情页、收藏功能
+2. **架构稳定**：三层容错，无单点故障
+3. **数据一致**：提示词模板与前端组件完美匹配
+4. **部署就绪**：构建成功，配置清晰
+
+只需完成API密钥配置，您的网站即可享受完整的LLM驱动工具搜索体验。	

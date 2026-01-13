@@ -1,0 +1,284 @@
+import React, { useState, useEffect } from 'react';
+import { Search, Moon, Sun, Bookmark, ArrowLeft } from 'lucide-react';
+import SearchBox from './components/SearchBox';
+import SearchResults from './components/SearchResults';
+import SearchResultSkeleton from './components/SearchResultSkeleton';
+import FavoritesModal from './components/FavoritesModal';
+import { ToastContainer } from './components/Toast';
+import { callLLM, RateLimitError } from './api/llmApi';
+import { getRateLimitInfo } from './utils/rateLimiter';
+
+/**
+ * 速率限制显示组件
+ */
+function RateLimitDisplay() {
+  const [rateInfo, setRateInfo] = useState(getRateLimitInfo());
+
+  // 每秒更新一次（用于实时显示配额）
+  useEffect(() => {
+    const interval = setInterval(() => {
+      setRateInfo(getRateLimitInfo());
+    }, 1000);
+    return () => clearInterval(interval);
+  }, []);
+
+  const usagePercent = (rateInfo.todayCalls / 30) * 100;
+  const isLowQuota = rateInfo.remainingCalls <= 5;
+
+  return (
+    <div className={`
+      inline-flex items-center gap-3 px-4 py-2 rounded-lg text-sm
+      ${isLowQuota
+        ? 'bg-orange-50 dark:bg-orange-900/20 text-orange-700 dark:text-orange-300'
+        : 'bg-gray-50 dark:bg-gray-800 text-gray-600 dark:text-gray-400'
+      }
+    `}>
+      <div className="flex items-center gap-2">
+        <span className="font-medium">今日API配额：</span>
+        <span className={`
+          font-bold ${isLowQuota ? 'text-orange-600 dark:text-orange-400' : ''}
+        `}>
+          {rateInfo.remainingCalls}/30
+        </span>
+        <span className="text-xs opacity-70">次</span>
+      </div>
+
+      {/* 进度条 */}
+      <div className="w-24 h-2 bg-gray-200 dark:bg-gray-700 rounded-full overflow-hidden">
+        <div
+          className={`
+            h-full transition-all duration-300
+            ${isLowQuota
+              ? 'bg-orange-500'
+              : usagePercent > 70
+              ? 'bg-yellow-500'
+              : 'bg-green-500'
+            }
+          `}
+          style={{ width: `${usagePercent}%` }}
+        />
+      </div>
+
+      {/* 缓存提示 */}
+      <span className="text-xs opacity-70">
+        💡 缓存查询不计配额
+      </span>
+    </div>
+  );
+}
+
+function App() {
+  const [isDarkMode, setIsDarkMode] = useState(false);
+  const [showFavorites, setShowFavorites] = useState(false);
+  const [searchQuery, setSearchQuery] = useState('');
+  const [searchResults, setSearchResults] = useState<any>(null);
+  const [isLoading, setIsLoading] = useState(false);
+  const [toasts, setToasts] = useState<Array<{ id: string; message: string; type?: 'success' | 'cache' }>>([]);
+
+  // 显示Toast通知
+  const showToast = (message: string, type?: 'success' | 'cache') => {
+    const id = Date.now().toString();
+    setToasts(prev => [...prev, { id, message, type }]);
+  };
+
+  const removeToast = (id: string) => {
+    setToasts(prev => prev.filter(t => t.id !== id));
+  };
+
+  // 处理搜索
+  const handleSearch = async (query: string) => {
+    if (!query.trim()) return;
+
+    setIsLoading(true);
+    setSearchQuery(query);
+    setSearchResults(null); // 清除旧结果，显示骨架屏
+
+    try {
+      console.log("开始搜索:", query);
+      const startTime = Date.now();
+      const results = await callLLM(query);
+      const searchTime = ((Date.now() - startTime) / 1000).toFixed(1);
+
+      if (results) {
+        setSearchResults(results);
+
+        // 根据搜索时间判断是否从缓存加载
+        if (parseFloat(searchTime) < 0.5) {
+          showToast(`⚡ 从缓存加载（${searchTime}秒）`, 'cache');
+        } else {
+          const rateInfo = getRateLimitInfo();
+          showToast(`✅ 搜索完成（今日剩余 ${rateInfo.remainingCalls} 次API调用）`, 'success');
+        }
+      } else {
+        alert("搜索失败，请稍后重试");
+      }
+    } catch (error) {
+      // 处理速率限制错误
+      if (error instanceof RateLimitError) {
+        const rateInfo = getRateLimitInfo();
+        showToast(
+          `⚠️ ${error.message}（今日剩余: ${rateInfo.remainingCalls}次）`,
+          'cache'
+        );
+
+        // 显示详细错误对话框
+        alert(
+          `⚠️ 速率限制\n\n` +
+          `${error.message}\n\n` +
+          `今日API调用统计：\n` +
+          `• 已使用：${rateInfo.todayCalls}/${30}次\n` +
+          `• 剩余：${rateInfo.remainingCalls}次\n\n` +
+          `💡 缓存查询不受限制，已缓存工具可无限次使用`
+        );
+      } else {
+        console.error("搜索失败:", error);
+        alert("搜索失败: " + (error as Error).message);
+      }
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  // 清除搜索
+  const handleClearSearch = () => {
+    setSearchQuery('');
+    setSearchResults(null);
+  };
+
+  // 返回首页
+  const handleBackToHome = () => {
+    setSearchQuery('');
+    setSearchResults(null);
+  };
+
+  return (
+    <div className={isDarkMode ? 'dark' : ''}>
+      <div className="min-h-screen bg-[#F5F7FA] dark:bg-[#1E1E2E] transition-colors">
+        {/* 顶部导航栏 */}
+        <header className="bg-white dark:bg-[#2D2D3F] shadow-sm sticky top-0 z-50">
+          <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+            <div className="flex justify-between items-center h-16">
+              {/* Logo */}
+              <div className="flex items-center gap-3">
+                <div className="w-10 h-10 bg-[#165DFF] rounded-lg flex items-center justify-center">
+                  <Search className="w-6 h-6 text-white" />
+                </div>
+                <div>
+                  <h1 className="font-bold text-[#333647] dark:text-[#F5F7FA]">
+                    ToolSearch
+                  </h1>
+                  <p className="text-xs text-gray-500 dark:text-gray-400">开源驱动</p>
+                </div>
+              </div>
+
+              {/* 右侧操作 */}
+              <div className="flex items-center gap-4">
+                <button
+                  onClick={() => setIsDarkMode(!isDarkMode)}
+                  className="p-2 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors"
+                  aria-label="切换主题"
+                >
+                  {isDarkMode ? (
+                    <Sun className="w-5 h-5 text-gray-600 dark:text-gray-300" />
+                  ) : (
+                    <Moon className="w-5 h-5 text-gray-600" />
+                  )}
+                </button>
+                <button
+                  onClick={() => setShowFavorites(true)}
+                  className="flex items-center gap-2 px-4 py-2 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors"
+                >
+                  <Bookmark className="w-5 h-5 text-gray-600 dark:text-gray-300" />
+                  <span className="text-sm text-gray-700 dark:text-gray-300">收藏工具</span>
+                </button>
+              </div>
+            </div>
+          </div>
+        </header>
+
+        {/* 主内容区 */}
+        <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-12">
+          {/* 搜索框区域 */}
+          <div className="mb-12">
+            <SearchBox
+              onSearch={handleSearch}
+              isLoading={isLoading}
+              hasResults={!!searchResults}
+              onClear={handleClearSearch}
+            />
+          </div>
+
+          {/* 返回按钮（当有搜索结果时） */}
+          {searchQuery && (
+            <div className="mb-6">
+              <button
+                onClick={handleBackToHome}
+                className="flex items-center gap-2 px-4 py-2 text-gray-600 dark:text-gray-300 hover:text-gray-800 dark:hover:text-gray-100 transition-colors"
+              >
+                <ArrowLeft className="w-4 h-4" />
+                返回首页
+              </button>
+            </div>
+          )}
+
+          {/* 内容显示逻辑 */}
+          {isLoading ? (
+            // 加载中显示骨架屏
+            <SearchResultSkeleton />
+          ) : searchResults ? (
+            // 搜索结果页面
+            <SearchResults results={searchResults} query={searchQuery} />
+          ) : null}
+
+          {/* 页脚广告位 */}
+          {!searchResults && (
+            <div className="mt-16">
+              <div className="bg-gradient-to-r from-blue-50 to-indigo-50 dark:from-gray-800 dark:to-gray-700 rounded-xl p-6 text-center border border-gray-200 dark:border-gray-600">
+                <div className="text-xs text-gray-500 dark:text-gray-400 mb-2">广告</div>
+                <h3 className="text-lg font-semibold text-gray-800 dark:text-gray-200 mb-2">
+                  云服务器新用户专享优惠
+                </h3>
+                <p className="text-gray-600 dark:text-gray-300 mb-3">
+                  1核2G 99元/年 · 高性能云数据库 · 免费迁移服务
+                </p>
+                <button className="px-6 py-2 bg-[#165DFF] text-white rounded-lg hover:bg-[#0E4FD0] transition-colors">
+                  立即查看
+                </button>
+              </div>
+            </div>
+          )}
+        </main>
+
+        {/* 页脚 */}
+        {!searchResults && (
+          <footer className="bg-white dark:bg-[#2D2D3F] border-t border-gray-200 dark:border-gray-700 mt-20">
+            <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+              {/* API配额显示 */}
+              <div className="mb-4 text-center">
+                <RateLimitDisplay />
+              </div>
+              <div className="text-center text-sm text-gray-600 dark:text-gray-400 space-y-2">
+                <p>资源来源：aliyun镜像 + 官方开源仓库 | 最后更新：2026-01-03</p>
+                <div className="flex justify-center gap-6">
+                  <a href="#" className="hover:text-[#165DFF] transition-colors">关于我们</a>
+                  <a href="#" className="hover:text-[#165DFF] transition-colors">隐私政策</a>
+                  <a href="#" className="hover:text-[#165DFF] transition-colors">广告合作</a>
+                </div>
+              </div>
+            </div>
+          </footer>
+        )}
+      </div>
+
+      {/* 收藏夹弹窗 */}
+      {showFavorites && (
+        <FavoritesModal onClose={() => setShowFavorites(false)} />
+      )}
+
+      {/* Toast通知容器 */}
+      <ToastContainer toasts={toasts} onRemove={removeToast} />
+    </div>
+  );
+}
+
+export default App;
