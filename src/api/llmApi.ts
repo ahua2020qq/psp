@@ -90,6 +90,23 @@ export const callLLM = async (userInput: string) => {
     if (err.response) {
       console.log("   状态码:", err.response.status)
       console.log("   错误:", JSON.stringify(err.response.data))
+
+      // 如果是API调用失败的错误，抛出详细错误信息
+      if (err.response.data?.error) {
+        const errorData = err.response.data
+        if (errorData.details) {
+          throw new Error(
+            `API调用失败\n\n` +
+            `详细信息:\n` +
+            `• 中文版本: ${errorData.details.zhSuccess ? '✅ 成功' : '❌ 失败'}\n` +
+            `• 英文版本: ${errorData.details.enSuccess ? '✅ 成功' : '❌ 失败'}\n` +
+            `• DeepSeek密钥: ${errorData.details.hasDeepSeekKey ? '✅ 已配置' : '❌ 未配置'}\n` +
+            `• 火山方舟密钥: ${errorData.details.hasVolcArkKey ? '✅ 已配置' : '❌ 未配置'}\n\n` +
+            `请检查 Cloudflare Pages 的环境变量配置`
+          )
+        }
+        throw new Error(errorData.error)
+      }
     }
     return null
   }

@@ -46,14 +46,39 @@ export default function SearchBox({ onSearch, isLoading, hasResults, onClear, la
   const [filteredSuggestions, setFilteredSuggestions] = useState(
     lang === 'zh' ? SUGGESTIONS_ZH : SUGGESTIONS_EN
   );
+  const [trendingRepos, setTrendingRepos] = useState<string[]>([]);
   const POPULAR_SEARCHES = lang === 'zh' ? POPULAR_SEARCHES_ZH : POPULAR_SEARCHES_EN;
   const SUGGESTIONS = lang === 'zh' ? SUGGESTIONS_ZH : SUGGESTIONS_EN;
+
+  // 获取 GitHub Trending
+  useEffect(() => {
+    const fetchTrending = async () => {
+      try {
+        const response = await fetch('/api/trending');
+        const data = await response.json();
+        if (data.repos && data.repos.length > 0) {
+          // 提取项目名称（取 owner/repo 中的 repo 部分）
+          const repoNames = data.repos.map((repo: string) => {
+            const parts = repo.split('/');
+            return parts[parts.length - 1]; // 取最后一部分（项目名）
+          });
+          setTrendingRepos(repoNames);
+          console.log('🔥 GitHub Trending:', repoNames);
+        }
+      } catch (error) {
+        console.log('⚠️ 获取 Trending 失败，使用默认列表');
+      }
+    };
+
+    fetchTrending();
+  }, []);
 
   // 当语言改变时更新建议
   useEffect(() => {
     setFilteredSuggestions(lang === 'zh' ? SUGGESTIONS_ZH : SUGGESTIONS_EN);
   }, [lang]);
   const inputRef = useRef<HTMLInputElement>(null);
+  const suggestionTimerRef = useRef<NodeJS.Timeout | null>(null);
 
   useEffect(() => {
     if (query.trim()) {
@@ -64,10 +89,29 @@ export default function SearchBox({ onSearch, isLoading, hasResults, onClear, la
       );
       setFilteredSuggestions(filtered);
       setShowSuggestions(filtered.length > 0);
+
+      // 5秒后自动隐藏建议框
+      if (suggestionTimerRef.current) {
+        clearTimeout(suggestionTimerRef.current);
+      }
+      suggestionTimerRef.current = setTimeout(() => {
+        setShowSuggestions(false);
+      }, 5000);
     } else {
       setFilteredSuggestions(SUGGESTIONS);
       setShowSuggestions(false);
+      if (suggestionTimerRef.current) {
+        clearTimeout(suggestionTimerRef.current);
+        suggestionTimerRef.current = null;
+      }
     }
+
+    // 清理函数：组件卸载时清除定时器
+    return () => {
+      if (suggestionTimerRef.current) {
+        clearTimeout(suggestionTimerRef.current);
+      }
+    };
   }, [query]);
 
   const handleSearch = () => {
@@ -102,6 +146,66 @@ export default function SearchBox({ onSearch, isLoading, hasResults, onClear, la
 
   return (
     <div className="relative max-w-3xl mx-auto">
+      {/* 自然语言提示 */}
+      {!hasResults && !query && (
+        <div className="mb-4 bg-gradient-to-r from-blue-50 to-indigo-50 dark:from-blue-900/20 dark:to-indigo-900/20 rounded-lg p-4 border border-blue-100 dark:border-blue-800">
+          <div className="text-sm text-gray-700 dark:text-gray-300 mb-2 font-medium">
+            💡 {lang === 'zh' ? '自然语言搜索，懂你就好' : 'Natural Language Search'}
+          </div>
+          <div className="text-xs text-gray-600 dark:text-gray-400 leading-relaxed">
+            {lang === 'zh' ? (
+              <>
+                <span className="text-gray-500">不需要知道工具名、分类或关键词</span>
+                <span className="mx-2">•</span>
+                <span className="text-gray-700">试试说：</span>
+                <button
+                  onClick={() => handleSuggestionClick('我想写日记')}
+                  className="mx-1 px-2 py-1 bg-white dark:bg-gray-800 rounded text-[#165DFF] hover:bg-blue-50 dark:hover:bg-blue-900/30 transition-colors cursor-pointer"
+                >
+                  "我想写日记"
+                </button>
+                <button
+                  onClick={() => handleSuggestionClick('替代Photoshop的软件')}
+                  className="mx-1 px-2 py-1 bg-white dark:bg-gray-800 rounded text-[#165DFF] hover:bg-blue-50 dark:hover:bg-blue-900/30 transition-colors cursor-pointer"
+                >
+                  "替代Photoshop的软件"
+                </button>
+                <button
+                  onClick={() => handleSuggestionClick('Mac上的视频剪辑')}
+                  className="mx-1 px-2 py-1 bg-white dark:bg-gray-800 rounded text-[#165DFF] hover:bg-blue-50 dark:hover:bg-blue-900/30 transition-colors cursor-pointer"
+                >
+                  "Mac上的视频剪辑"
+                </button>
+              </>
+            ) : (
+              <>
+                <span className="text-gray-500">No need to know tool names, categories, or keywords</span>
+                <span className="mx-2">•</span>
+                <span className="text-gray-700">Try:</span>
+                <button
+                  onClick={() => handleSuggestionClick('journaling app')}
+                  className="mx-1 px-2 py-1 bg-white dark:bg-gray-800 rounded text-[#165DFF] hover:bg-blue-50 dark:hover:bg-blue-900/30 transition-colors cursor-pointer"
+                >
+                  "journaling app"
+                </button>
+                <button
+                  onClick={() => handleSuggestionClick('Photoshop alternative')}
+                  className="mx-1 px-2 py-1 bg-white dark:bg-gray-800 rounded text-[#165DFF] hover:bg-blue-50 dark:hover:bg-blue-900/30 transition-colors cursor-pointer"
+                >
+                  "Photoshop alternative"
+                </button>
+                <button
+                  onClick={() => handleSuggestionClick('video editing on Mac')}
+                  className="mx-1 px-2 py-1 bg-white dark:bg-gray-800 rounded text-[#165DFF] hover:bg-blue-50 dark:hover:bg-blue-900/30 transition-colors cursor-pointer"
+                >
+                  "video editing on Mac"
+                </button>
+              </>
+            )}
+          </div>
+        </div>
+      )}
+
       {/* 搜索框 */}
       <div className="relative">
         <div
@@ -174,8 +278,10 @@ export default function SearchBox({ onSearch, isLoading, hasResults, onClear, la
       {/* 热门搜索提示 */}
       {!hasResults && !query && (
         <div className="mt-4 text-center">
-          <span className="text-sm text-gray-500 dark:text-gray-400 mr-3">{t('hotSearches', lang)}</span>
-          {POPULAR_SEARCHES.map((term, index) => (
+          <span className="text-sm text-gray-500 dark:text-gray-400 mr-3">
+            {trendingRepos.length > 0 ? '🔥 GitHub Trending' : t('hotSearches', lang)}
+          </span>
+          {(trendingRepos.length > 0 ? trendingRepos : POPULAR_SEARCHES).map((term, index) => (
             <button
               key={index}
               onClick={() => handleSuggestionClick(term)}

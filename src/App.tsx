@@ -170,24 +170,33 @@ function App() {
     console.log('='.repeat(50));
 
     try {
-      // 测试 1: 检查 /api/test-kv 接口
-      console.log('📡 测试 1: 检查 /api/test-kv 接口...');
-      const testKVResponse = await fetch('/api/test-kv');
-      const contentType = testKVResponse.headers.get('content-type');
-      console.log('Content-Type:', contentType);
+      // 测试 1: 检查已缓存工具的数据结构
+      console.log('📡 测试 1: 检查 mysql 缓存数据...');
+      const searchResponse = await fetch('/api/search', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ query: 'mysql', type: 'search' })
+      });
 
-      if (contentType && contentType.includes('application/json')) {
-        const kvData = await testKVResponse.json();
-        console.log('✅ /api/test-kv 返回 JSON 数据');
-        console.log('KV 绑定状态:', kvData.kvBinding);
-        console.log('已缓存工具数:', kvData.cachedTools.count);
-        alert(`✅ KV API 正常工作！\n\n绑定状态: ${kvData.kvBinding.exists ? '已绑定' : '未绑定'}\n已缓存工具: ${kvData.cachedTools.count} 个\n\n详细信息请查看浏览器控制台（F12）`);
+      const searchData = await searchResponse.json();
+      console.log('📊 mysql 搜索结果:', {
+        fromCache: searchData.fromCache,
+        hasResults: !!searchData.results,
+        resultsCount: searchData.results?.length,
+        hasRelatedTools: !!searchData.relatedTools,
+        relatedToolsCount: searchData.relatedTools?.length,
+        fullData: searchData
+      });
+
+      // 检查 relatedTools 是否为空
+      if (!searchData.relatedTools || searchData.relatedTools.length === 0) {
+        console.warn('⚠️ BUG 确认：relatedTools 为空！');
+        alert(`⚠️ 发现 BUG：相关工具为空\n\n缓存状态: ${searchData.fromCache ? '服务器缓存' : 'AI 生成'}\n主结果数量: ${searchData.results?.length}\n相关工具数量: ${searchData.relatedTools?.length || 0}\n\n详细信息请查看浏览器控制台（F12）`);
       } else {
-        console.log('❌ /api/test-kv 返回的不是 JSON');
-        const text = await testKVResponse.text();
-        console.log('返回内容前100字符:', text.substring(0, 100));
-        alert('❌ /api/test-kv 返回 HTML 而不是 JSON\n\nFunctions 未被正确部署！\n\n详细信息请查看浏览器控制台（F12）');
+        console.log('✅ relatedTools 正常:', searchData.relatedTools);
+        alert(`✅ 相关工具正常！\n\n缓存状态: ${searchData.fromCache ? '服务器缓存' : 'AI 生成'}\n主结果数量: ${searchData.results?.length}\n相关工具数量: ${searchData.relatedTools?.length}`);
       }
+
     } catch (error) {
       console.error('❌ 测试失败:', error);
       alert(`❌ 测试失败: ${error}\n\n详细信息请查看浏览器控制台（F12）`);
@@ -261,6 +270,18 @@ function App() {
         <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-12">
           {/* 搜索框区域 */}
           <div className="mb-12">
+            {/* 核心Slogan - 仅在首页显示 */}
+            {!searchQuery && !searchResults && (
+              <div className="text-center mb-8">
+                <h2 className="text-3xl sm:text-4xl font-bold text-gray-800 dark:text-gray-100 mb-3">
+                  {lang === 'zh' ? '懂你的智能搜索' : 'Smart Search That Gets You'}
+                </h2>
+                <p className="text-lg text-gray-600 dark:text-gray-400">
+                  {lang === 'zh' ? '不需要背工具名词' : "No need to memorize tool names"}
+                </p>
+              </div>
+            )}
+
             <SearchBox
               onSearch={handleSearch}
               isLoading={isLoading}
@@ -321,6 +342,9 @@ function App() {
               </div>
               <div className="text-center text-sm text-gray-600 dark:text-gray-400 space-y-2">
                 <p>{t('source', lang)} | {t('lastUpdate', lang)}</p>
+                <p className="text-xs text-gray-500 dark:text-gray-500 italic">
+                  {lang === 'zh' ? '把复杂留给AI，把简单留给自己' : 'Leave complexity to AI, keep simplicity for yourself'}
+                </p>
                 <div className="flex justify-center gap-6">
                   <a href="#" className="hover:text-[#165DFF] transition-colors">{t('aboutUs', lang)}</a>
                   <a href="#" className="hover:text-[#165DFF] transition-colors">{t('privacyPolicy', lang)}</a>

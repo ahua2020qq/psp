@@ -11,6 +11,7 @@ interface SearchResultsProps {
 
 export default function SearchResults({ results, query, lang }: SearchResultsProps) {
   const [expandedIndex, setExpandedIndex] = useState(0);
+  const [expandedSecondaryIndex, setExpandedSecondaryIndex] = useState(0);
 
   return (
     <div className="space-y-6">
@@ -70,20 +71,122 @@ export default function SearchResults({ results, query, lang }: SearchResultsPro
 
       {/* 结果区域 */}
       <div className="grid grid-cols-1 lg:grid-cols-4 gap-6">
-        {/* 主结果区 */}
-        <div className="lg:col-span-3 space-y-4">
-          {results.results.map((tool: any, index: number) => (
-            <ToolDetailCard
-              key={index}
-              tool={tool}
-              isExpanded={expandedIndex === index}
-              onToggle={() => setExpandedIndex(expandedIndex === index ? -1 : index)}
-            />
-          ))}
+        {/* 主结果区 - 双语卡片 */}
+        <div className="lg:col-span-3 space-y-6">
+          {/* 根据 API 返回的数据结构判断是否为双语版本 */}
+          {results.zh && results.en ? (
+            // 新版双语数据：根据语言决定顺序
+            <>
+              {/* 主要语言版本 */}
+              {results.results.map((tool: any, index: number) => (
+                <ToolDetailCard
+                  key={`primary-${index}`}
+                  tool={tool}
+                  isExpanded={expandedIndex === index}
+                  onToggle={() => setExpandedIndex(expandedIndex === index ? -1 : index)}
+                />
+              ))}
+              {/* 次要语言版本 */}
+              {(lang === 'zh' ? results.en.results : results.zh.results).map((tool: any, index: number) => (
+                <div key={`secondary-${index}`} className="mt-6 pt-6 border-t border-gray-200 dark:border-gray-700">
+                  <ToolDetailCard
+                    tool={tool}
+                    isExpanded={expandedSecondaryIndex === index}
+                    onToggle={() => setExpandedSecondaryIndex(expandedSecondaryIndex === index ? -1 : index)}
+                  />
+                </div>
+              ))}
+            </>
+          ) : (
+            // 旧版单语数据：保持原样
+            results.results.map((tool: any, index: number) => (
+              <ToolDetailCard
+                key={index}
+                tool={tool}
+                isExpanded={expandedIndex === index}
+                onToggle={() => setExpandedIndex(expandedIndex === index ? -1 : index)}
+              />
+            ))
+          )}
         </div>
 
         {/* 侧边栏 */}
         <div className="lg:col-span-1 space-y-6">
+          {/* 工具热点 */}
+          <div className="bg-white dark:bg-[#2D2D3F] rounded-xl p-5 shadow-sm border border-gray-100 dark:border-gray-700">
+            <h3 className="font-semibold text-gray-800 dark:text-gray-100 mb-4 flex items-center gap-2">
+              <span>🔥</span>
+              <span>工具热点</span>
+            </h3>
+            <div className="space-y-3">
+              <a
+                href="https://github.com/trending"
+                target="_blank"
+                rel="noopener noreferrer"
+                className="block group"
+              >
+                <div className="text-sm text-gray-700 dark:text-gray-300 group-hover:text-[#165DFF] dark:group-hover:text-[#165DFF] transition-colors line-clamp-2">
+                  GitHub Trending - 今日热门开源项目
+                </div>
+                <div className="text-xs text-gray-400 dark:text-gray-500 mt-1">
+                  github.com
+                </div>
+              </a>
+              <a
+                href="https://techcrunch.com/category/startups/"
+                target="_blank"
+                rel="noopener noreferrer"
+                className="block group"
+              >
+                <div className="text-sm text-gray-700 dark:text-gray-300 group-hover:text-[#165DFF] dark:group-hover:text-[#165DFF] transition-colors line-clamp-2">
+                  TechCrunch - 创业与技术动态
+                </div>
+                <div className="text-xs text-gray-400 dark:text-gray-500 mt-1">
+                  techcrunch.com
+                </div>
+              </a>
+              <a
+                href="https://www.infoq.cn/topic/open-source"
+                target="_blank"
+                rel="noopener noreferrer"
+                className="block group"
+              >
+                <div className="text-sm text-gray-700 dark:text-gray-300 group-hover:text-[#165DFF] dark:group-hover:text-[#165DFF] transition-colors line-clamp-2">
+                  InfoQ - 开源技术深度解读
+                </div>
+                <div className="text-xs text-gray-400 dark:text-gray-500 mt-1">
+                  infoq.cn
+                </div>
+              </a>
+              <a
+                href="https://www.oschina.net/news"
+                target="_blank"
+                rel="noopener noreferrer"
+                className="block group"
+              >
+                <div className="text-sm text-gray-700 dark:text-gray-300 group-hover:text-[#165DFF] dark:group-hover:text-[#165DFF] transition-colors line-clamp-2">
+                  开源中国 - 开源资讯快报
+                </div>
+                <div className="text-xs text-gray-400 dark:text-gray-500 mt-1">
+                  oschina.net
+                </div>
+              </a>
+              <a
+                href="https://juejin.cn/tag/前端"
+                target="_blank"
+                rel="noopener noreferrer"
+                className="block group"
+              >
+                <div className="text-sm text-gray-700 dark:text-gray-300 group-hover:text-[#165DFF] dark:group-hover:text-[#165DFF] transition-colors line-clamp-2">
+                  掘金 - 前端技术精选
+                </div>
+                <div className="text-xs text-gray-400 dark:text-gray-500 mt-1">
+                  juejin.cn
+                </div>
+              </a>
+            </div>
+          </div>
+
           {/* 相关推荐 */}
           <div className="bg-white dark:bg-[#2D2D3F] rounded-xl p-5 shadow-sm border border-gray-100 dark:border-gray-700">
             <h3 className="font-semibold text-gray-800 dark:text-gray-100 mb-4">

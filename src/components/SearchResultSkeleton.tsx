@@ -6,6 +6,16 @@ import React from 'react';
 export default function SearchResultSkeleton() {
   return (
     <div className="space-y-6">
+      {/* 加载提示 */}
+      <div className="bg-gradient-to-r from-blue-50 to-indigo-50 dark:from-blue-900/20 dark:to-indigo-900/20 rounded-xl p-4 border border-blue-100 dark:border-blue-800 text-center">
+        <div className="flex items-center justify-center gap-3">
+          <div className="w-5 h-5 border-2 border-[#165DFF] border-t-transparent rounded-full animate-spin"></div>
+          <span className="text-sm font-medium text-gray-700 dark:text-gray-300">
+            AI正在分析你的需求，查找最佳工具...
+          </span>
+        </div>
+      </div>
+
       {/* 结果统计骨架 */}
       <div className="flex items-center gap-2">
         <div className="w-4 h-4 bg-gray-200 dark:bg-gray-700 rounded animate-pulse" />

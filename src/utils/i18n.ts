@@ -146,9 +146,9 @@ const translations: Record<Language, Translations> = {
     noFavorites: '暂无收藏的工具',
 
     // 页脚
-    source: '资源来源：aliyun镜像 + 官方开源仓库',
+    source: '数据来源：开源社区 + AI智能生成',
     lastUpdate: '最后更新：2026-01-13',
-    aboutUs: '关于我们',
+    aboutUs: '姝姝豆芽之家',
     privacyPolicy: '隐私政策',
     advertising: '广告合作',
 
@@ -232,7 +232,7 @@ const translations: Record<Language, Translations> = {
     noFavorites: 'No favorites yet',
 
     // 页脚
-    source: 'Source: Aliyun Mirror + Official Repos',
+    source: 'Data Source: Open Source + AI Generated',
     lastUpdate: 'Last Updated: 2026-01-13',
     aboutUs: 'About Us',
     privacyPolicy: 'Privacy Policy',

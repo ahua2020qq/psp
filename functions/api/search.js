@@ -15,8 +15,8 @@ const CACHE_KEY_PREFIX = "tool:";
 
 // ==================== Prompt模板（优化版 - 更短更快） ====================
 
-// 搜索专用Prompt - 精简版
-const SEARCH_PROMPT = `你是开源软件工具检索助手。返回JSON格式：
+// 搜索专用Prompt - 精简版（中文）
+const SEARCH_PROMPT_ZH = `你是开源软件工具检索助手。返回JSON格式：
 {
   "searchIntent": "精确查询",
   "originalQuery": "{userInput}",
@@ -47,6 +47,41 @@ const SEARCH_PROMPT = `你是开源软件工具检索助手。返回JSON格式�
 
 只输出JSON，不要其他文字。所有字段必须有实际内容。`;
 
+// 搜索专用Prompt - 精简版（英文）
+const SEARCH_PROMPT_EN = `You are an open source software tool search assistant. Return JSON format:
+{
+  "searchIntent": "Precise Query",
+  "originalQuery": "{userInput}",
+  "resultCount": 1,
+  "searchTime": "0.3s",
+  "results": [{
+    "name": "Tool Name",
+    "category": "Category",
+    "coreUsage": "Brief core usage description",
+    "corePositioning": "Positioning",
+    "installation": {
+      "ubuntu": "Command",
+      "centos": "Command",
+      "docker": "Command",
+      "macos": "Command"
+    },
+    "downloadUrl": {
+      "mirror": "Mirror Link",
+      "official": "Official Link"
+    },
+    "commonIssues": [{"rank": 1, "problem": "Problem", "solution": "Solution"}],
+    "commonCommands": [{"command": "Command", "description": "Description"}],
+    "rating": 5,
+    "applicableScenarios": "Scenarios"
+  }],
+  "relatedTools": [{"name": "Related Tool", "category": "Category", "reason": "Reason"}]
+}
+
+Output JSON only, no other text. All fields must have actual content.`;
+
+// 兼容：保留旧的 SEARCH_PROMPT（使用中文）
+const SEARCH_PROMPT = SEARCH_PROMPT_ZH;
+
 // 推荐专用Prompt - 精简版
 const RECOMMEND_PROMPT = `你是开源软件工具推荐助手。返回JSON格式：
 {
@@ -68,9 +103,13 @@ const RECOMMEND_PROMPT = `你是开源软件工具推荐助手。返回JSON格�
 // 调用火山方舟ARK API
 async function callVolcArk(prompt, env) {
   const apiKey = env?.VOLC_ARK_API_KEY;
-  if (!apiKey) return null;
+  if (!apiKey) {
+    console.log("⚠️ VOLC_ARK_API_KEY 未配置");
+    return null;
+  }
 
   try {
+    console.log("🔥 调用火山方舟...");
     const response = await fetch("https://ark.cn-beijing.volces.com/api/v3/responses", {
       method: "POST",
       headers: {
@@ -86,7 +125,10 @@ async function callVolcArk(prompt, env) {
       })
     });
 
-    if (!response.ok) return null;
+    if (!response.ok) {
+      console.log(`❌ 火山方舟响应错误: ${response.status} ${response.statusText}`);
+      return null;
+    }
 
     const data = await response.json();
     if (data.output && data.output[0] && data.output[0].text) {
@@ -97,6 +139,7 @@ async function callVolcArk(prompt, env) {
         if (jsonMatch) return JSON.parse(jsonMatch[0]);
       }
     }
+    console.log("❌ 火山方舟返回格式错误");
     return null;
   } catch (error) {
     console.log("❌ 火山方舟调用失败:", error.message);
@@ -107,9 +150,13 @@ async function callVolcArk(prompt, env) {
 // 调用DeepSeek API
 async function callDeepSeek(prompt, env) {
   const apiKey = env?.DEEPSEEK_API_KEY;
-  if (!apiKey) return null;
+  if (!apiKey) {
+    console.log("⚠️ DEEPSEEK_API_KEY 未配置");
+    return null;
+  }
 
   try {
+    console.log("🤖 调用DeepSeek...");
     const response = await fetch("https://api.deepseek.com/v1/chat/completions", {
       method: "POST",
       headers: {
@@ -121,20 +168,27 @@ async function callDeepSeek(prompt, env) {
         messages: [{ role: "user", content: prompt }],
         temperature: 0.2,
         response_format: { type: "json_object" },
-        max_tokens: 1500  // 降低到1500加快响应
+        max_tokens: 5000  // 限制输出不超过5K tokens
       })
     });
 
-    if (!response.ok) return null;
+    if (!response.ok) {
+      console.log(`❌ DeepSeek响应错误: ${response.status} ${response.statusText}`);
+      const errorText = await response.text();
+      console.log(`   错误详情: ${errorText}`);
+      return null;
+    }
 
     const data = await response.json();
     if (data.choices && data.choices[0] && data.choices[0].message) {
       try {
         return JSON.parse(data.choices[0].message.content);
-      } catch {
+      } catch (e) {
+        console.log("❌ DeepSeek返回的JSON解析失败:", e.message);
         return null;
       }
     }
+    console.log("❌ DeepSeek返回格式错误");
     return null;
   } catch (error) {
     console.log("❌ DeepSeek调用失败:", error.message);
@@ -153,7 +207,25 @@ async function getFromKV(query, env) {
     const cached = await env.TOOL_CACHE.get(cacheKey, "json");
 
     if (cached) {
-      console.log(`✅ 服务器缓存命中: ${query}`);
+      // 检查是否为新版双语格式
+      const isBilingualFormat = cached.zh && cached.en;
+
+      // 调试日志：检查读取的数据
+      console.log(`✅ [LOAD_DEBUG] 服务器缓存命中: ${query}`, {
+        hasResults: !!cached.results,
+        resultsCount: cached.results?.length,
+        hasRelatedTools: !!cached.relatedTools,
+        relatedToolsCount: cached.relatedTools?.length,
+        isBilingualFormat,
+        keys: Object.keys(cached)
+      });
+
+      // 如果是旧版单语格式，返回null（视为未命中，强制刷新）
+      if (!isBilingualFormat) {
+        console.log(`⚠️ 旧版缓存格式，强制刷新: ${query}`);
+        return null;
+      }
+
       return cached;
     }
 
@@ -178,6 +250,15 @@ async function saveToKV(query, result, env) {
       _cacheVersion: "1.0"
     };
 
+    // 调试日志：检查数据完整性
+    console.log(`💾 [SAVE_DEBUG] 准备保存: ${query}`, {
+      hasResults: !!cachedData.results,
+      resultsCount: cachedData.results?.length,
+      hasRelatedTools: !!cachedData.relatedTools,
+      relatedToolsCount: cachedData.relatedTools?.length,
+      keys: Object.keys(cachedData)
+    });
+
     await env.TOOL_CACHE.put(cacheKey, JSON.stringify(cachedData), {
       expirationTtl: CACHE_TTL // 30天后自动过期
     });
@@ -194,6 +275,176 @@ async function saveToKV(query, result, env) {
 function cleanCacheData(data) {
   const { _cachedAt, _cacheVersion, ...cleanData } = data;
   return cleanData;
+}
+
+// ==================== 安全函数 ====================
+
+/**
+ * 语义归一化 - 提取查询的核心意图
+ * - 移除无意义的修饰词和语气词
+ * - 提取关键词作为缓存key
+ * - 提高缓存命中率，体现智能
+ */
+function normalizeQuery(input) {
+  if (!input) return '';
+
+  let normalized = input.toLowerCase();
+
+  // 移除常见的无意义修饰词和语气词
+  const meaninglessPatterns = [
+    // 程度副词
+    /\b(很|非常|特别|超级|极其|相当|挺|比较|稍微|略微|确实|真的|其实)\b/g,
+    // 语气词/助词
+    /\b(哈哈|嘿嘿|呵呵|哎呀|哇|哦|嗯|啊|吧|嘛|呢|呀|咯|喽)\b/g,
+    // 填充词
+    /\b(就是|也就是|那个|这个|某些|某种|一些)\b/g,
+    // 标点符号
+    /[，。！？、,。!?]/g,
+    // 空白字符
+    /\s+/g,
+  ];
+
+  meaninglessPatterns.forEach(pattern => {
+    normalized = normalized.replace(pattern, '');
+  });
+
+  // 提取核心关键词（技术工具相关词汇）
+  const techKeywords = [
+    '写日记|日记|笔记|记录',  // 笔记日记
+    '替代|代替|替换',          // 替代工具
+    '数据库|mysql|redis|mongodb|postgresql',  // 数据库
+    '编辑|修改|改写',          // 编辑工具
+    '监控|监控工具|zabbix|prometheus',  // 监控
+    '容器|docker|k8s|kubernetes',  // 容器
+    '开发|编程|代码|ide',      // 开发工具
+    '图片|图像|处理|ps|photoshop',  // 图像处理
+    '视频|剪辑|视频编辑',      // 视频编辑
+    '文档|word|excel|ppt|office',  // 办公软件
+    '管理|系统|工具|软件|平台',  // 通用
+  ];
+
+  // 尝试匹配技术关键词
+  for (const pattern of techKeywords) {
+    const regex = new RegExp(pattern, 'g');
+    const matches = normalized.match(regex);
+    if (matches && matches.length > 0) {
+      // 找到关键词，用第一个匹配作为归一化key
+      const keyword = matches[0];
+      return keyword;
+    }
+  }
+
+  // 没有匹配到关键词，返回清理后的文本（至少去除修饰词）
+  return normalized || input;
+}
+
+/**
+ * 清理和验证用户输入
+ * - 防止注入攻击
+ * - 限制输入长度（约30 tokens ≈ 120个中文字符）
+ */
+function sanitizeInput(input) {
+  if (!input || typeof input !== 'string') {
+    return '';
+  }
+
+  // 移除危险字符和潜在的注入代码
+  let cleaned = input
+    .replace(/<script\b[^<]*(?:(?!<\/script>)<[^<]*)*<\/script>/gi, '')  // 移除script标签
+    .replace(/javascript:/gi, '')  // 移除javascript:
+    .replace(/on\w+\s*=/gi, '')   // 移除事件处理器
+    .replace(/[<>\"']/g, '');      // 移除HTML特殊字符
+
+  // 去除首尾空格
+  cleaned = cleaned.trim();
+
+  // 限制长度：30 tokens ≈ 120个中文字符或60个英文单词
+  const MAX_CHARS = 120;
+  if (cleaned.length > MAX_CHARS) {
+    cleaned = cleaned.substring(0, MAX_CHARS);
+  }
+
+  return cleaned;
+}
+
+/**
+ * 验证输入是否为纯文本（非代码注入）
+ */
+function isValidInput(input) {
+  // 检查是否包含可疑模式
+  const dangerousPatterns = [
+    /<script/i,
+    /javascript:/i,
+    /on\w+\s*=/i,
+    /eval\s*\(/i,
+    /exec\s*\(/i,
+    /system\s*\(/i,
+    /\$\(.+\)/,
+    /`.*\$.*`/,
+    /\${.*}/,
+  ];
+
+  for (const pattern of dangerousPatterns) {
+    if (pattern.test(input)) {
+      return false;
+    }
+  }
+
+  return true;
+}
+
+/**
+ * 验证输入内容是否与技术工具相关
+ * - 检测是否包含明显无关的关键词（如农业、政务等）
+ * - 宽松检测，避免误杀
+ */
+function isTechRelatedInput(input) {
+  const lowerInput = input.toLowerCase();
+
+  // 技术工具相关的关键词（正向匹配）
+  const techKeywords = [
+    '软件', '工具', '系统', '平台', '应用', '服务', '数据库', '开发', '编程',
+    '软件', '管理', '监控', '服务器', '容器', '云', '网络', '安全', '测试',
+    '框架', '库', 'api', 'web', '前端', '后端', '算法', '数据', '运维',
+    'linux', 'windows', 'mac', 'docker', 'kubernetes', 'mysql', 'redis', 'nginx',
+    'git', '代码', '部署', 'ci/cd', 'devops', '微服务', '数据库',
+    'software', 'tool', 'system', 'platform', 'app', 'service', 'database',
+    'development', 'programming', 'coding', 'server', 'container', 'cloud',
+    'security', 'testing', 'framework', 'library', 'network', 'devops'
+  ];
+
+  // 明显无关的关键词（负向匹配）
+  const nonTechKeywords = [
+    '补贴', '申报', '农户', '农产品', '农业', '农村', '扶贫', '种粮',
+    '农机', '政策', '政府', '政务', '办事', '审批', '证照', '执照',
+    '社保', '医保', '公积金', '户籍', '身份证', '护照', '签证',
+    '房产', '购房', '贷款', '抵押', '理财', '保险', '证券', '股票',
+    'subsidy', 'agriculture', 'farming', 'rural', 'policy', 'government',
+    'approval', 'license', 'insurance', 'loan', 'real estate'
+  ];
+
+  // 检查是否包含技术关键词
+  const hasTechKeyword = techKeywords.some(keyword =>
+    lowerInput.includes(keyword.toLowerCase())
+  );
+
+  // 检查是否包含明显的非技术关键词
+  const hasNonTechKeyword = nonTechKeywords.some(keyword =>
+    lowerInput.includes(keyword.toLowerCase())
+  );
+
+  // 判断逻辑：
+  // 1. 如果有技术关键词，允许
+  // 2. 如果没有技术关键词但有非技术关键词，拒绝
+  // 3. 如果都没有（太短或模糊），允许（交给LLM判断）
+  if (hasTechKeyword) {
+    return true;
+  }
+  if (hasNonTechKeyword) {
+    return false;
+  }
+  // 模糊输入，允许通过
+  return true;
 }
 
 // ==================== 主处理函数 ====================
@@ -224,6 +475,20 @@ export async function onRequest(context) {
       userInput = url.searchParams.get("query") || "";
     }
 
+    // 安全验证：清理输入
+    userInput = sanitizeInput(userInput);
+
+    // 验证输入安全性
+    if (!isValidInput(userInput)) {
+      return new Response(JSON.stringify({
+        error: "输入包含非法字符",
+        details: "检测到潜在的注入攻击，请求已被拒绝"
+      }), {
+        status: 400,
+        headers: { "Content-Type": "application/json", "Access-Control-Allow-Origin": "*" }
+      });
+    }
+
     if (!userInput && type === "search") {
       return new Response(JSON.stringify({ error: "缺少查询参数" }), {
         status: 400,
@@ -231,19 +496,44 @@ export async function onRequest(context) {
       });
     }
 
+    // 验证输入内容是否与技术工具相关（节省API成本）
+    if (type === "search" && !isTechRelatedInput(userInput)) {
+      console.log(`⚠️ 输入内容与技术工具无关: ${userInput}`);
+      return new Response(JSON.stringify({
+        error: "输入内容与技术工具无关",
+        details: "这是技术工具搜索平台，请输入软件、开发工具、系统等相关关键词"
+      }), {
+        status: 400,
+        headers: { "Content-Type": "application/json", "Access-Control-Allow-Origin": "*" }
+      });
+    }
+
     let result = null;
+
+    // 语义归一化：提取核心意图用于缓存key
+    const normalizedQuery = normalizeQuery(userInput);
+    console.log(`🧠 [NORMALIZE] 原始: "${userInput}" → 归一化: "${normalizedQuery}"`);
 
     // 调试信息：检查KV是否可用
     const kvAvailable = type === "search" && env.TOOL_CACHE;
-    console.log(`🔍 [DEBUG] KV可用性: ${kvAvailable}, 查询: ${userInput}, 类型: ${type}`);
+    console.log(`🔍 [DEBUG] KV可用性: ${kvAvailable}, 查询: ${userInput}, 归一化: ${normalizedQuery}, 类型: ${type}`);
 
-    // 1. 先检查服务器端KV缓存（仅搜索类型）
+    // 1. 先检查服务器端KV缓存（仅搜索类型，使用归一化的key）
     if (kvAvailable) {
-      result = await getFromKV(userInput, env);
+      result = await getFromKV(normalizedQuery, env);
 
       if (result) {
         // 缓存命中，返回清理后的数据
         const cleanResult = cleanCacheData(result);
+
+        // 调试：检查清理后的数据
+        console.log(`🔍 [CLEAN_DEBUG] 清理后的数据: ${userInput}`, {
+          hasResults: !!cleanResult.results,
+          resultsCount: cleanResult.results?.length,
+          hasRelatedTools: !!cleanResult.relatedTools,
+          relatedToolsCount: cleanResult.relatedTools?.length,
+          keys: Object.keys(cleanResult)
+        });
 
         // 添加缓存标记
         cleanResult.fromCache = true;
@@ -253,7 +543,8 @@ export async function onRequest(context) {
           cacheHit: true
         };
 
-        console.log(`✅ [SUCCESS] 服务器缓存命中返回: ${userInput}`);
+        console.log(`✅ [SUCCESS] 服务器缓存命中返回: ${userInput}, relatedTools数量: ${cleanResult.relatedTools?.length || 0}`);
+
         return new Response(JSON.stringify(cleanResult), {
           status: 200,
           headers: { "Content-Type": "application/json", "Access-Control-Allow-Origin": "*" }
@@ -265,28 +556,87 @@ export async function onRequest(context) {
       console.log(`⚠️ [SKIP] KV不可用 - type:${type}, hasKV:${!!env.TOOL_CACHE}`);
     }
 
-    // 2. 缓存未命中，调用LLM API
-    const prompt = type === "search"
-      ? SEARCH_PROMPT.replace(/\{userInput\}/g, userInput)
-      : RECOMMEND_PROMPT;
+    // 2. 缓存未命中，调用LLM API（中文+英文双版本）
+    if (type === "search") {
+      console.log(`🚀 开始并行调用中英文LLM: ${userInput}`);
 
-    // 优先使用DeepSeek（更快）
-    result = await callDeepSeek(prompt, env);
-    if (!result) {
-      result = await callVolcArk(prompt, env);
+      // 并行调用中英文两个版本
+      const [zhResult, enResult] = await Promise.all([
+        // 中文版本
+        (async () => {
+          const prompt = SEARCH_PROMPT_ZH.replace(/\{userInput\}/g, userInput);
+          console.log("📝 准备获取中文版本...");
+          let result = await callDeepSeek(prompt, env);
+          if (!result) {
+            console.log("⚠️ DeepSeek中文失败，尝试火山方舟...");
+            result = await callVolcArk(prompt, env);
+          }
+          console.log(`${result ? "✅" : "❌"} 中文版本${result ? "成功" : "失败"}`);
+          return result;
+        })(),
+        // 英文版本
+        (async () => {
+          const prompt = SEARCH_PROMPT_EN.replace(/\{userInput\}/g, userInput);
+          console.log("📝 准备获取英文版本...");
+          let result = await callDeepSeek(prompt, env);
+          if (!result) {
+            console.log("⚠️ DeepSeek英文失败，尝试火山方舟...");
+            result = await callVolcArk(prompt, env);
+          }
+          console.log(`${result ? "✅" : "❌"} 英文版本${result ? "成功" : "失败"}`);
+          return result;
+        })()
+      ]);
+
+      // 检查结果 - 至少需要一个成功
+      if (!zhResult && !enResult) {
+        console.log(`❌ LLM调用失败 - 中文:${!!zhResult}, 英文:${!!enResult}`);
+        return new Response(JSON.stringify({
+          error: "API调用失败",
+          details: {
+            zhSuccess: !!zhResult,
+            enSuccess: !!enResult,
+            hasDeepSeekKey: !!env?.DEEPSEEK_API_KEY,
+            hasVolcArkKey: !!env?.VOLC_ARK_API_KEY
+          }
+        }), {
+          status: 500,
+          headers: { "Content-Type": "application/json", "Access-Control-Allow-Origin": "*" }
+        });
+      }
+
+      // 容错处理：如果只有一个成功，用成功的版本替代失败的版本
+      const finalZhResult = zhResult || enResult;
+      const finalEnResult = enResult || zhResult;
+      const hasFallback = !zhResult || !enResult;
+
+      // 合并中英文结果
+      result = {
+        ...finalZhResult,
+        zh: finalZhResult,
+        en: finalEnResult,
+        _partialTranslation: hasFallback  // 标记是否部分翻译
+      };
+    } else {
+      // 推荐类型保持原样
+      const prompt = RECOMMEND_PROMPT;
+      result = await callDeepSeek(prompt, env);
+      if (!result) {
+        result = await callVolcArk(prompt, env);
+      }
+
+      if (!result) {
+        return new Response(JSON.stringify({ error: "API调用失败" }), {
+          status: 500,
+          headers: { "Content-Type": "application/json", "Access-Control-Allow-Origin": "*" }
+        });
+      }
     }
 
-    if (!result) {
-      return new Response(JSON.stringify({ error: "API调用失败" }), {
-        status: 500,
-        headers: { "Content-Type": "application/json", "Access-Control-Allow-Origin": "*" }
-      });
-    }
-
-    // 3. 保存到服务器端KV缓存（仅搜索类型）
+    // 3. 保存到服务器端KV缓存（仅搜索类型，使用归一化的key）
     if (type === "search" && env.TOOL_CACHE) {
-      console.log(`💾 [SAVE] 准备保存到KV: ${userInput}`);
-      await saveToKV(userInput, result, env);
+      console.log(`💾 [SAVE] 准备保存到KV: 原始="${userInput}", 归一化="${normalizedQuery}"`);
+      await saveToKV(normalizedQuery, result, env);
     } else {
       console.log(`⚠️ [NOSAVE] 跳过KV保存 - type:${type}, hasKV:${!!env.TOOL_CACHE}`);
     }
@@ -296,7 +646,9 @@ export async function onRequest(context) {
     result.debugInfo = {
       kvEnabled: !!env.TOOL_CACHE,
       cacheHit: false,
-      cacheKey: kvAvailable ? `${CACHE_KEY_PREFIX}${userInput.toLowerCase()}` : null
+      originalQuery: userInput,
+      normalizedQuery: normalizedQuery,
+      cacheKey: kvAvailable ? `${CACHE_KEY_PREFIX}${normalizedQuery.toLowerCase()}` : null
     };
 
     return new Response(JSON.stringify(result), {
