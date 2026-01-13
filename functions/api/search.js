@@ -1,7 +1,17 @@
 /**
- * Cloudflare Pages Function - 搜索API代理（优化版）
+ * Cloudflare Pages Function - 搜索API代理（优化版 + 服务器端缓存）
  * 隐藏API密钥和Prompt模板，解决CORS问题
+ *
+ * 新增功能：
+ * - 服务器端KV缓存（30天过期）
+ * - 只有未缓存或缓存过期才调用LLM
+ * - 大幅降低TOKEN消耗
  */
+
+// ==================== 缓存配置 ====================
+
+const CACHE_TTL = 30 * 24 * 60 * 60; // 30天（秒）
+const CACHE_KEY_PREFIX = "tool:";
 
 // ==================== Prompt模板（优化版 - 更短更快） ====================
 
@@ -132,6 +142,60 @@ async function callDeepSeek(prompt, env) {
   }
 }
 
+// ==================== KV缓存函数 ====================
+
+/**
+ * 从KV获取缓存
+ */
+async function getFromKV(query, env) {
+  try {
+    const cacheKey = CACHE_KEY_PREFIX + query.toLowerCase();
+    const cached = await env.TOOL_CACHE.get(cacheKey, "json");
+
+    if (cached) {
+      console.log(`✅ 服务器缓存命中: ${query}`);
+      return cached;
+    }
+
+    return null;
+  } catch (error) {
+    console.log("⚠️ KV读取失败:", error.message);
+    return null;
+  }
+}
+
+/**
+ * 保存到KV
+ */
+async function saveToKV(query, result, env) {
+  try {
+    const cacheKey = CACHE_KEY_PREFIX + query.toLowerCase();
+
+    // 添加缓存时间戳
+    const cachedData = {
+      ...result,
+      _cachedAt: new Date().toISOString(),
+      _cacheVersion: "1.0"
+    };
+
+    await env.TOOL_CACHE.put(cacheKey, JSON.stringify(cachedData), {
+      expirationTtl: CACHE_TTL // 30天后自动过期
+    });
+
+    console.log(`💾 已保存到服务器缓存: ${query} (30天过期)`);
+  } catch (error) {
+    console.log("⚠️ KV写入失败:", error.message);
+  }
+}
+
+/**
+ * 清理缓存数据（返回给前端，移除内部字段）
+ */
+function cleanCacheData(data) {
+  const { _cachedAt, _cacheVersion, ...cleanData } = data;
+  return cleanData;
+}
+
 // ==================== 主处理函数 ====================
 export async function onRequest(context) {
   try {
@@ -168,6 +232,27 @@ export async function onRequest(context) {
     }
 
     let result = null;
+
+    // 1. 先检查服务器端KV缓存（仅搜索类型）
+    if (type === "search" && env.TOOL_CACHE) {
+      result = await getFromKV(userInput, env);
+
+      if (result) {
+        // 缓存命中，返回清理后的数据
+        const cleanResult = cleanCacheData(result);
+
+        // 添加缓存标记
+        cleanResult.fromCache = true;
+        cleanResult.cacheAge = result._cachedAt;
+
+        return new Response(JSON.stringify(cleanResult), {
+          status: 200,
+          headers: { "Content-Type": "application/json", "Access-Control-Allow-Origin": "*" }
+        });
+      }
+    }
+
+    // 2. 缓存未命中，调用LLM API
     const prompt = type === "search"
       ? SEARCH_PROMPT.replace(/\{userInput\}/g, userInput)
       : RECOMMEND_PROMPT;
@@ -184,6 +269,14 @@ export async function onRequest(context) {
         headers: { "Content-Type": "application/json", "Access-Control-Allow-Origin": "*" }
       });
     }
+
+    // 3. 保存到服务器端KV缓存（仅搜索类型）
+    if (type === "search" && env.TOOL_CACHE) {
+      await saveToKV(userInput, result, env);
+    }
+
+    // 添加未缓存标记
+    result.fromCache = false;
 
     return new Response(JSON.stringify(result), {
       status: 200,
