@@ -26,19 +26,12 @@ export const callLLM = async (userInput: string) => {
     return null
   }
 
-  // 1. 先查缓存
+  // 1. 先查本地缓存（仅作为快速fallback）
   const cached = getFromCache(userInput)
   if (cached) {
-    console.log("⚡ 使用缓存数据")
-    recordApiCall(true) // 记录缓存查询（不计入限额）
-    return {
-      searchIntent: "精确查询",
-      originalQuery: userInput,
-      resultCount: 1,
-      searchTime: "< 0.1秒",
-      results: [cached],
-      relatedTools: []
-    }
+    console.log("⚡ 本地缓存命中，但继续请求服务器获取最新数据...")
+    // 不再使用本地缓存，让服务器返回最新数据
+    // 本地缓存已经过时（缺少双语格式）
   }
 
   // 2. 缓存未命中，检查速率限制
