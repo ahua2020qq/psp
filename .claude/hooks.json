@@ -1,0 +1,17 @@
+{
+  "hooks": {
+    "preToolUse": {
+      "command": "echo '🔧 Executing: {tool} {args}'",
+      "enabled": false
+    },
+    "postToolUse": {
+      "command": "echo '✅ Completed: {tool}'",
+      "enabled": false
+    },
+    "userPromptSubmit": {
+      "command": "node -e \"console.log(new Date().toISOString() + ' | User: ' + process.argv.slice(1).join(' '))\" '{prompt}' >> .claude/conversation.log",
+      "enabled": false
+    }
+  },
+  "note": "Hooks 可以在特定事件时自动运行命令。当前默认禁用，需要时手动启用。"
+}
