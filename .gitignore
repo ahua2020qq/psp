@@ -27,3 +27,4 @@ npm-debug.log*
 # Cloudflare
 .wrangler/
 .dev.vars
+tmpclaude-*

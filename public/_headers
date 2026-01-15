@@ -1,0 +1,15 @@
+# Default headers for all files
+/*
+  X-Content-Type-Options: nosniff
+  Access-Control-Allow-Origin: *
+
+# JavaScript modules - ensure correct MIME type
+/build/assets/*.js
+  Content-Type: text/javascript; charset=utf-8
+
+*.js
+  Content-Type: text/javascript; charset=utf-8
+
+# CSS files
+*.css
+  Content-Type: text/css; charset=utf-8

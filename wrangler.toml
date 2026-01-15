@@ -11,6 +11,13 @@ binding = "TOOL_CACHE"
 id = "6ac3fd82c746475eb43640852c656fbd"
 preview_id = "6ac3fd82c746475eb43640852c656fbd"
 
+# D1 数据库绑定
+# PSPDB 数据库 ID
+[[d1_databases]]
+binding = "PSPDB"
+database_name = "pspdb"
+database_id = "f0ee9a5c-336c-4086-b428-fdf2adfbac58"
+
 # 环境变量说明
 # 生产环境变量请在 Cloudflare Dashboard 中配置：
 # 1. 项目 → Settings → Environment variables

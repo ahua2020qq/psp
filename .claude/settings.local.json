@@ -1,0 +1,21 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(powershell:*)",
+      "Bash(ls:*)",
+      "Bash(dir:*)",
+      "Bash(findstr:*)",
+      "Bash(/help)",
+      "WebSearch",
+      "Bash(npx wrangler whoami:*)",
+      "Bash(npm run deploy:*)",
+      "Bash(npx wrangler pages deploy:*)",
+      "Bash(npx wrangler pages deployment list:*)",
+      "Bash(npm run build:*)",
+      "Bash(npx wrangler d1 list:*)",
+      "Bash(npx wrangler d1 execute:*)",
+      "Bash(git add:*)",
+      "Bash(git reset:*)"
+    ]
+  }
+}

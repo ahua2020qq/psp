@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import {
   ChevronDown,
   ChevronUp,
@@ -11,20 +11,61 @@ import {
   Check,
   Bookmark,
   BookmarkCheck,
-  Share2
+  Share2,
+  ThumbsUp,
+  ThumbsDown
 } from 'lucide-react';
 import { isFavorite, addFavorite, removeFavorite } from '../utils/storage';
+import { submitFeedback, getFeedbackStats } from '../api/feedbackApi';
 
 interface ToolDetailCardProps {
   tool: any;
   isExpanded: boolean;
   onToggle: () => void;
+  query?: string;  // 搜索词，用于反馈 API
+  lang?: 'zh' | 'en';  // 当前语言
 }
 
-export default function ToolDetailCard({ tool, isExpanded, onToggle }: ToolDetailCardProps) {
+export default function ToolDetailCard({ tool, isExpanded, onToggle, query, lang = 'zh' }: ToolDetailCardProps) {
   const [activeTab, setActiveTab] = useState<'usage' | 'download' | 'install' | 'issues' | 'commands'>('usage');
   const [copiedText, setCopiedText] = useState<string | null>(null);
   const [isFav, setIsFav] = useState(isFavorite(tool.name));
+
+  // 反馈相关状态
+  const [feedbackStats, setFeedbackStats] = useState({ up_count: 0, down_count: 0 });
+  const [userFeedback, setUserFeedback] = useState<'up' | 'down' | null>(null);
+  const [isSubmittingFeedback, setIsSubmittingFeedback] = useState(false);
+
+  // 加载反馈统计
+  useEffect(() => {
+    if (tool.name && query) {
+      getFeedbackStats(tool.name, query).then(stats => {
+        if (stats) {
+          setFeedbackStats(stats);
+        }
+      });
+    }
+  }, [tool.name, query]);
+
+  // 处理反馈提交
+  const handleFeedback = async (type: 'up' | 'down') => {
+    if (!query || isSubmittingFeedback) return;
+
+    setIsSubmittingFeedback(true);
+    const result = await submitFeedback(tool.name, query, type, lang);
+
+    if (result.success) {
+      // 更新统计
+      const newStats = {
+        up_count: feedbackStats.up_count + (type === 'up' ? 1 : 0),
+        down_count: feedbackStats.down_count + (type === 'down' ? 1 : 0)
+      };
+      setFeedbackStats(newStats);
+      setUserFeedback(type);
+    }
+
+    setIsSubmittingFeedback(false);
+  };
 
   const handleCopy = (text: string, label: string) => {
     navigator.clipboard.writeText(text);
@@ -82,6 +123,45 @@ export default function ToolDetailCard({ tool, isExpanded, onToggle }: ToolDetai
             </div>
           </div>
           <div className="flex gap-2">
+            {/* 点赞/点踩按钮组 */}
+            {query && (
+              <div className="flex items-center gap-1 px-2 py-1 bg-gray-50 dark:bg-gray-800 rounded-lg border border-gray-200 dark:border-gray-700">
+                <button
+                  onClick={() => handleFeedback('up')}
+                  disabled={isSubmittingFeedback}
+                  className={`
+                    flex items-center gap-1 px-2 py-1 rounded text-sm transition-colors
+                    ${userFeedback === 'up'
+                      ? 'bg-green-100 dark:bg-green-900/30 text-green-600 dark:text-green-400'
+                      : 'text-gray-600 dark:text-gray-400 hover:bg-gray-200 dark:hover:bg-gray-700'
+                    }
+                    ${isSubmittingFeedback ? 'opacity-50 cursor-not-allowed' : ''}
+                  `}
+                  title="这个推荐有用"
+                >
+                  <ThumbsUp className="w-4 h-4" />
+                  <span className="text-xs">{feedbackStats.up_count}</span>
+                </button>
+                <div className="w-px h-4 bg-gray-300 dark:bg-gray-600" />
+                <button
+                  onClick={() => handleFeedback('down')}
+                  disabled={isSubmittingFeedback}
+                  className={`
+                    flex items-center gap-1 px-2 py-1 rounded text-sm transition-colors
+                    ${userFeedback === 'down'
+                      ? 'bg-red-100 dark:bg-red-900/30 text-red-600 dark:text-red-400'
+                      : 'text-gray-600 dark:text-gray-400 hover:bg-gray-200 dark:hover:bg-gray-700'
+                    }
+                    ${isSubmittingFeedback ? 'opacity-50 cursor-not-allowed' : ''}
+                  `}
+                  title="这个推荐没用"
+                >
+                  <ThumbsDown className="w-4 h-4" />
+                  <span className="text-xs">{feedbackStats.down_count}</span>
+                </button>
+              </div>
+            )}
+
             <button
               onClick={handleFavoriteToggle}
               className="p-2 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-lg transition-colors"

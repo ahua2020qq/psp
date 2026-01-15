@@ -6,7 +6,11 @@
  * - 服务器端KV缓存（30天过期）
  * - 只有未缓存或缓存过期才调用LLM
  * - 大幅降低TOKEN消耗
+ * - 完整的搜索日志记录和分析系统
  */
+
+// ==================== 导入日志工具 ====================
+import { recordCompleteSearchFlow } from '../utils/analytics.js';
 
 // ==================== 缓存配置 ====================
 
@@ -449,6 +453,9 @@ function isTechRelatedInput(input) {
 
 // ==================== 主处理函数 ====================
 export async function onRequest(context) {
+  // 记录开始时间
+  const startTime = Date.now();
+
   try {
     const { request, env } = context;
     const url = new URL(request.url);
@@ -468,11 +475,14 @@ export async function onRequest(context) {
 
     // 获取请求参数
     let userInput = "";
+    let userLanguage = 'zh';
     if (request.method === "POST") {
       const body = await request.json();
       userInput = body.query || "";
+      userLanguage = body.language || 'zh';
     } else {
       userInput = url.searchParams.get("query") || "";
+      userLanguage = url.searchParams.get("language") || 'zh';
     }
 
     // 安全验证：清理输入
@@ -545,6 +555,21 @@ export async function onRequest(context) {
 
         console.log(`✅ [SUCCESS] 服务器缓存命中返回: ${userInput}, relatedTools数量: ${cleanResult.relatedTools?.length || 0}`);
 
+        // 记录搜索日志（异步执行，不阻塞响应）
+        const endTime = Date.now();
+        if (env.PSPDB) {
+          recordCompleteSearchFlow(env.PSPDB, request, {
+            originalQuery: userInput,
+            normalizedQuery: normalizedQuery,
+            searchIntent: cleanResult.searchIntent,
+            searchType: 'search',
+            resultCount: cleanResult.results?.length || 0,
+            fromCache: true,
+            totalDurationMs: endTime - startTime,
+            language: userLanguage
+          }, {}).catch(err => console.error('日志记录失败:', err));
+        }
+
         return new Response(JSON.stringify(cleanResult), {
           status: 200,
           headers: { "Content-Type": "application/json", "Access-Control-Allow-Origin": "*" }
@@ -557,6 +582,9 @@ export async function onRequest(context) {
     }
 
     // 2. 缓存未命中，调用LLM API（中文+英文双版本）
+    // 用于收集 LLM 调用数据
+    let llmCallData = [];
+
     if (type === "search") {
       console.log(`🚀 开始并行调用中英文LLM: ${userInput}`);
 
@@ -565,25 +593,83 @@ export async function onRequest(context) {
         // 中文版本
         (async () => {
           const prompt = SEARCH_PROMPT_ZH.replace(/\{userInput\}/g, userInput);
+          const callStartTime = Date.now();
           console.log("📝 准备获取中文版本...");
+
           let result = await callDeepSeek(prompt, env);
+          let provider = 'deepseek';
+          let model = 'deepseek-chat';
+          let success = true;
+          let errorMessage = null;
+
           if (!result) {
             console.log("⚠️ DeepSeek中文失败，尝试火山方舟...");
             result = await callVolcArk(prompt, env);
+            provider = 'volc_ark';
+            model = 'doubao-seed-1-8-251228';
           }
-          console.log(`${result ? "✅" : "❌"} 中文版本${result ? "成功" : "失败"}`);
+
+          if (!result) {
+            success = false;
+            errorMessage = 'All LLM providers failed';
+          }
+
+          const duration = Date.now() - callStartTime;
+
+          // 收集 LLM 调用数据
+          llmCallData.push({
+            language: 'zh',
+            provider,
+            model,
+            promptLength: prompt.length,
+            responseLength: result ? JSON.stringify(result).length : 0,
+            durationMs: duration,
+            success,
+            errorMessage
+          });
+
+          console.log(`${result ? "✅" : "❌"} 中文版本${result ? "成功" : "失败"} (${duration}ms)`);
           return result;
         })(),
         // 英文版本
         (async () => {
           const prompt = SEARCH_PROMPT_EN.replace(/\{userInput\}/g, userInput);
+          const callStartTime = Date.now();
           console.log("📝 准备获取英文版本...");
+
           let result = await callDeepSeek(prompt, env);
+          let provider = 'deepseek';
+          let model = 'deepseek-chat';
+          let success = true;
+          let errorMessage = null;
+
           if (!result) {
             console.log("⚠️ DeepSeek英文失败，尝试火山方舟...");
             result = await callVolcArk(prompt, env);
+            provider = 'volc_ark';
+            model = 'doubao-seed-1-8-251228';
           }
-          console.log(`${result ? "✅" : "❌"} 英文版本${result ? "成功" : "失败"}`);
+
+          if (!result) {
+            success = false;
+            errorMessage = 'All LLM providers failed';
+          }
+
+          const duration = Date.now() - callStartTime;
+
+          // 收集 LLM 调用数据
+          llmCallData.push({
+            language: 'en',
+            provider,
+            model,
+            promptLength: prompt.length,
+            responseLength: result ? JSON.stringify(result).length : 0,
+            durationMs: duration,
+            success,
+            errorMessage
+          });
+
+          console.log(`${result ? "✅" : "❌"} 英文版本${result ? "成功" : "失败"} (${duration}ms)`);
           return result;
         })()
       ]);
@@ -650,6 +736,24 @@ export async function onRequest(context) {
       normalizedQuery: normalizedQuery,
       cacheKey: kvAvailable ? `${CACHE_KEY_PREFIX}${normalizedQuery.toLowerCase()}` : null
     };
+
+    // 记录搜索日志（异步执行，不阻塞响应）
+    const endTime = Date.now();
+    if (env.PSPDB) {
+      recordCompleteSearchFlow(env.PSPDB, request, {
+        originalQuery: userInput,
+        normalizedQuery: normalizedQuery,
+        searchIntent: result.searchIntent,
+        searchType: type,
+        resultCount: result.results?.length || 0,
+        fromCache: false,
+        totalDurationMs: endTime - startTime,
+        language: userLanguage,
+        results: result.results // 记录返回的工具
+      }, {
+        calls: llmCallData
+      }).catch(err => console.error('日志记录失败:', err));
+    }
 
     return new Response(JSON.stringify(result), {
       status: 200,

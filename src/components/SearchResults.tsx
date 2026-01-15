@@ -11,7 +11,6 @@ interface SearchResultsProps {
 
 export default function SearchResults({ results, query, lang }: SearchResultsProps) {
   const [expandedIndex, setExpandedIndex] = useState(0);
-  const [expandedSecondaryIndex, setExpandedSecondaryIndex] = useState(0);
 
   return (
     <div className="space-y-6">
@@ -75,28 +74,17 @@ export default function SearchResults({ results, query, lang }: SearchResultsPro
         <div className="lg:col-span-3 space-y-6">
           {/* 根据 API 返回的数据结构判断是否为双语版本 */}
           {results.zh && results.en ? (
-            // 新版双语数据：根据语言决定顺序
-            <>
-              {/* 主要语言版本 */}
-              {results.results.map((tool: any, index: number) => (
-                <ToolDetailCard
-                  key={`primary-${index}`}
-                  tool={tool}
-                  isExpanded={expandedIndex === index}
-                  onToggle={() => setExpandedIndex(expandedIndex === index ? -1 : index)}
-                />
-              ))}
-              {/* 次要语言版本 */}
-              {(lang === 'zh' ? results.en.results : results.zh.results).map((tool: any, index: number) => (
-                <div key={`secondary-${index}`} className="mt-6 pt-6 border-t border-gray-200 dark:border-gray-700">
-                  <ToolDetailCard
-                    tool={tool}
-                    isExpanded={expandedSecondaryIndex === index}
-                    onToggle={() => setExpandedSecondaryIndex(expandedSecondaryIndex === index ? -1 : index)}
-                  />
-                </div>
-              ))}
-            </>
+            // 新版双语数据：根据语言决定显示哪个版本
+            (lang === 'zh' ? results.zh.results : results.en.results).map((tool: any, index: number) => (
+              <ToolDetailCard
+                key={`bilingual-${index}`}
+                tool={tool}
+                isExpanded={expandedIndex === index}
+                onToggle={() => setExpandedIndex(expandedIndex === index ? -1 : index)}
+                query={query}
+                lang={lang}
+              />
+            ))
           ) : (
             // 旧版单语数据：保持原样
             results.results.map((tool: any, index: number) => (
@@ -105,6 +93,8 @@ export default function SearchResults({ results, query, lang }: SearchResultsPro
                 tool={tool}
                 isExpanded={expandedIndex === index}
                 onToggle={() => setExpandedIndex(expandedIndex === index ? -1 : index)}
+                query={query}
+                lang={lang}
               />
             ))
           )}

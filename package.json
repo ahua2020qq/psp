@@ -63,6 +63,6 @@
     "dev:worker": "wrangler dev --port 8788 --local",
     "build": "vite build && node scripts/copy-functions.cjs",
     "preview": "vite preview",
-    "deploy": "npm run build && npx wrangler pages deploy . --project-name=douya-chat --commit-dirty=true"
+    "deploy": "npm run build && npx wrangler pages deploy . --project-name=psp-tool-search --commit-dirty=true"
   }
 }

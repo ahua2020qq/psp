@@ -164,46 +164,6 @@ function App() {
     setSearchResults(null);
   };
 
-  // 测试 KV 缓存功能
-  const testKVCache = async () => {
-    console.log('🔍 开始测试 KV 缓存功能...');
-    console.log('='.repeat(50));
-
-    try {
-      // 测试 1: 检查已缓存工具的数据结构
-      console.log('📡 测试 1: 检查 mysql 缓存数据...');
-      const searchResponse = await fetch('/api/search', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ query: 'mysql', type: 'search' })
-      });
-
-      const searchData = await searchResponse.json();
-      console.log('📊 mysql 搜索结果:', {
-        fromCache: searchData.fromCache,
-        hasResults: !!searchData.results,
-        resultsCount: searchData.results?.length,
-        hasRelatedTools: !!searchData.relatedTools,
-        relatedToolsCount: searchData.relatedTools?.length,
-        fullData: searchData
-      });
-
-      // 检查 relatedTools 是否为空
-      if (!searchData.relatedTools || searchData.relatedTools.length === 0) {
-        console.warn('⚠️ BUG 确认：relatedTools 为空！');
-        alert(`⚠️ 发现 BUG：相关工具为空\n\n缓存状态: ${searchData.fromCache ? '服务器缓存' : 'AI 生成'}\n主结果数量: ${searchData.results?.length}\n相关工具数量: ${searchData.relatedTools?.length || 0}\n\n详细信息请查看浏览器控制台（F12）`);
-      } else {
-        console.log('✅ relatedTools 正常:', searchData.relatedTools);
-        alert(`✅ 相关工具正常！\n\n缓存状态: ${searchData.fromCache ? '服务器缓存' : 'AI 生成'}\n主结果数量: ${searchData.results?.length}\n相关工具数量: ${searchData.relatedTools?.length}`);
-      }
-
-    } catch (error) {
-      console.error('❌ 测试失败:', error);
-      alert(`❌ 测试失败: ${error}\n\n详细信息请查看浏览器控制台（F12）`);
-    }
-
-    console.log('='.repeat(50));
-  };
 
   return (
     <div className={isDarkMode ? 'dark' : ''}>
@@ -349,16 +309,6 @@ function App() {
                   <a href="#" className="hover:text-[#165DFF] transition-colors">{t('aboutUs', lang)}</a>
                   <a href="#" className="hover:text-[#165DFF] transition-colors">{t('privacyPolicy', lang)}</a>
                   <a href="#" className="hover:text-[#165DFF] transition-colors">{t('advertising', lang)}</a>
-                  <a
-                    href="#"
-                    onClick={(e) => {
-                      e.preventDefault();
-                      testKVCache();
-                    }}
-                    className="text-xs text-gray-400 hover:text-[#165DFF] transition-colors"
-                  >
-                    🔍 KV缓存调试
-                  </a>
                 </div>
               </div>
             </div>

@@ -148,7 +148,7 @@ const translations: Record<Language, Translations> = {
     // 页脚
     source: '数据来源：开源社区 + AI智能生成',
     lastUpdate: '最后更新：2026-01-13',
-    aboutUs: '姝姝豆芽之家',
+    aboutUs: '豆芽空间',
     privacyPolicy: '隐私政策',
     advertising: '广告合作',
 
