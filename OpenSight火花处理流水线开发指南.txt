@@ -1,0 +1,206 @@
+OpenSight火花处理流水线开发指南
+一、项目概述与架构
+
+核心目标：在 Douya.chat 主站下，快速构建一个 /spark 子系统，实现对创新灵感（火花）的捕获、评估、深化和实验的全流程管理。
+
+技术栈（复用Douya.chat已验证的）：
+
+前端：React/Next.js (App Router)，部署于 Cloudflare Pages
+
+数据库：Cloudflare D1 (SQLite)
+
+API：Next.js API Routes 或 Cloudflare Workers
+
+样式：Tailwind CSS
+
+部署位置：所有功能作为 Douya.chat 的子路径，无需独立域名。
+
+二、数据模型设计 (D1 Schema)
+在现有Douya数据库中，创建以下核心表：
+
+sql
+-- 1. 火花核心表
+CREATE TABLE sparks (
+    id TEXT PRIMARY KEY DEFAULT (lower(hex(randomblob(4))) || '-' || lower(hex(randomblob(2))) || '-4' || substr(lower(hex(randomblob(2))),2) || '-a' || substr(lower(hex(randomblob(2))),2) || '-6' || lower(hex(randomblob(6)))) ,
+    title TEXT NOT NULL, -- 一句话灵感
+    description TEXT, -- 详细描述
+    status TEXT NOT NULL DEFAULT 'captured', -- 'captured', 'thinking', 'experimenting', 'archived'
+    project_tag TEXT, -- 关联项目: 'douya', 'opensight', 'deepseek', 'other'
+    creator_comment TEXT, -- 随手记的备注
+    created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+    updated_at DATETIME DEFAULT CURRENT_TIMESTAMP
+);
+
+-- 2. 火花状态流转记录表（用于追溯）
+CREATE TABLE spark_logs (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    spark_id TEXT REFERENCES sparks(id) ON DELETE CASCADE,
+    from_status TEXT,
+    to_status TEXT,
+    note TEXT, -- 流转原因
+    created_at DATETIME DEFAULT CURRENT_TIMESTAMP
+);
+
+-- 3. 快速索引（加速查询）
+CREATE INDEX idx_sparks_status ON sparks(status);
+CREATE INDEX idx_sparks_updated ON sparks(updated_at DESC);
+三、核心API接口设计 (Next.js App Router)
+在 /app/api/sparks/ 路径下创建以下路由处理器：
+
+POST /app/api/sparks/route.js - 创建新火花
+
+javascript
+// 核心：极简捕获，只需title和project_tag
+export async function POST(request) {
+    const { title, project_tag = 'other' } = await request.json();
+    const db = await getDb(); // 你的D1连接函数
+    const sparkId = crypto.randomUUID();
+    
+    await db.prepare(
+        'INSERT INTO sparks (id, title, project_tag, status) VALUES (?, ?, ?, ?)'
+    ).bind(sparkId, title, project_tag, 'captured').run();
+    
+    return Response.json({ id: sparkId, message: 'Spark captured!' });
+}
+GET /app/api/sparks/route.js - 按状态获取火花列表
+
+javascript
+export async function GET(request) {
+    const { searchParams } = new URL(request.url);
+    const status = searchParams.get('status'); // 'captured', 'thinking', ...
+    const db = await getDb();
+    
+    let query = 'SELECT * FROM sparks';
+    let params = [];
+    if (status) {
+        query += ' WHERE status = ? ORDER BY updated_at DESC';
+        params.push(status);
+    }
+    
+    const sparks = await db.prepare(query).bind(...params).all();
+    return Response.json(sparks.results);
+}
+PUT /app/api/sparks/[id]/route.js - 更新火花状态（核心流转逻辑）
+
+javascript
+// 处理 /api/sparks/[id]
+export async function PUT(request, { params }) {
+    const { id } = params;
+    const { status, note } = await request.json();
+    const db = await getDb();
+    
+    // 1. 获取当前状态
+    const current = await db.prepare('SELECT status FROM sparks WHERE id = ?').bind(id).first();
+    
+    // 2. 更新火花状态
+    await db.prepare('UPDATE sparks SET status = ?, updated_at = CURRENT_TIMESTAMP WHERE id = ?')
+          .bind(status, id).run();
+    
+    // 3. 记录状态流转日志
+    await db.prepare('INSERT INTO spark_logs (spark_id, from_status, to_status, note) VALUES (?, ?, ?, ?)')
+          .bind(id, current.status, status, note || '').run();
+    
+    return Response.json({ updated: true });
+}
+四、前端页面实现 (关键交互)
+创建以下页面组件，重点在于极简与速度：
+
+捕获页 (/app/spark/capture/page.jsx) - 10秒内完成的输入
+
+jsx
+'use client';
+export default function CapturePage() {
+    const [title, setTitle] = useState('');
+    const [tag, setTag] = useState('douya');
+    
+    const handleSubmit = async (e) => {
+        e.preventDefault();
+        await fetch('/api/sparks', {
+            method: 'POST',
+            body: JSON.stringify({ title, project_tag: tag })
+        });
+        setTitle(''); // 清空
+        alert('已捕获！');
+    };
+    
+    return (
+        <form onSubmit={handleSubmit} className="p-4">
+            <input type="text" value={title} onChange={(e)=>setTitle(e.target.value)} 
+                   placeholder="一句话描述你的灵感..." className="w-full p-2 border" required />
+            <select value={tag} onChange={(e)=>setTag(e.target.value)} className="mt-2 p-2 border">
+                <option value="douya">Douya.chat</option>
+                <option value="opensight">OpenSight</option>
+                <option value="experiment">新实验</option>
+            </select>
+            <button type="submit" className="mt-4 bg-blue-500 text-white p-2">快速捕获</button>
+        </form>
+    );
+}
+工作台页 (/app/spark/board/page.jsx) - 状态看板
+
+jsx
+// 关键功能：拖拽或点击按钮改变状态
+'use client';
+export default function SparkBoard() {
+    const [sparks, setSparks] = useState([]);
+    
+    // 加载所有captured状态的火花
+    useEffect(() => { fetch('/api/sparks?status=captured').then(r=>r.json()).then(setSparks); }, []);
+    
+    const changeStatus = async (sparkId, newStatus) => {
+        await fetch(`/api/sparks/${sparkId}`, {
+            method: 'PUT',
+            body: JSON.stringify({ status: newStatus, note: '从看板更新' })
+        });
+        // 更新本地状态
+        setSparks(prev => prev.filter(s => s.id !== sparkId));
+    };
+    
+    return (
+        <div className="p-4">
+            {sparks.map(spark => (
+                <div key={spark.id} className="border p-3 mb-2">
+                    <h3>{spark.title}</h3>
+                    <div className="flex gap-2 mt-2">
+                        <button onClick={()=>changeStatus(spark.id, 'thinking')} className="bg-gray-100 p-1">写思考</button>
+                        <button onClick={()=>changeStatus(spark.id, 'experimenting')} className="bg-green-100 p-1">转实验</button>
+                        <button onClick={()=>changeStatus(spark.id, 'archived')} className="bg-red-100 p-1">存档</button>
+                    </div>
+                </div>
+            ))}
+        </div>
+    );
+}
+五、部署与集成清单
+
+数据库初始化：将第二节的SQL在Cloudflare D1控制台执行，或通过wrangler d1 execute命令执行。
+
+代码集成：将上述API和页面代码放入你的Douya.chat Next.js项目对应位置。
+
+导航添加：在Douya.chat主站导航栏添加入口：/spark/capture (快速记录) 和 /spark/board (看板管理)。
+
+权限：触发我的登录
+
+测试流程：
+
+访问 /spark/capture，输入“对话分轮插件优化”，点击捕获。
+
+访问 /spark/board，应看到刚捕获的火花。
+
+点击“写思考”，该火花状态应变为thinking，并从看板消失。
+
+检查D1数据库的sparks和spark_logs表，验证数据流转。
+
+六、给Claude Code的明确指令
+
+“请按照上述指南，以Douya.chat现有项目为基础，实现OpenSight火花处理流水线。重点按顺序完成：
+
+数据层：在现有D1库中创建sparks和spark_logs表。
+
+API层：实现三个核心API（创建、列表查询、状态更新）。
+
+视图层：实现两个核心页面（快速捕获页、状态看板页）。
+
+集成：将新页面链接加入主站导航。
+
+要求：代码保持与Douya.chat现有风格一致，使用相同的工具函数和配置。这是最小可行产品，无需额外功能，追求速度和可靠性。”

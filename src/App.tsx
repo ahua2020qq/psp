@@ -187,6 +187,24 @@ function App() {
 
               {/* 右侧操作 */}
               <div className="flex items-center gap-4">
+                {/* Spark 火花系统 */}
+                <div className="flex items-center gap-2">
+                  <a
+                    href="/spark-capture.html"
+                    className="flex items-center gap-2 px-3 py-2 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors text-sm font-medium text-gray-700 dark:text-gray-300"
+                    title="快速捕获火花"
+                  >
+                    ⚡ 捕获
+                  </a>
+                  <a
+                    href="/spark-board.html"
+                    className="flex items-center gap-2 px-3 py-2 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors text-sm font-medium text-gray-700 dark:text-gray-300"
+                    title="查看火花工作台"
+                  >
+                    🎯 工作台
+                  </a>
+                </div>
+
                 {/* 语言切换 */}
                 <button
                   onClick={toggleLanguage}
@@ -318,7 +336,7 @@ function App() {
 
       {/* 收藏夹弹窗 */}
       {showFavorites && (
-        <FavoritesModal onClose={() => setShowFavorites(false)} />
+        <FavoritesModal onClose={() => setShowFavorites(false)} lang={lang} />
       )}
 
       {/* Toast通知容器 */}

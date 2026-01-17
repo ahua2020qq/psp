@@ -1,0 +1,391 @@
+/* ========================================
+   OpenSight 火花看板页面样式
+   ======================================== */
+
+.spark-board-container {
+  min-height: 100vh;
+  background: #f7fafc;
+  padding: 20px;
+}
+
+/* 加载状态 */
+.spark-board-loading {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  min-height: 100vh;
+  gap: 16px;
+}
+
+.spinner {
+  width: 40px;
+  height: 40px;
+  border: 4px solid #e2e8f0;
+  border-top-color: #667eea;
+  border-radius: 50%;
+  animation: spin 0.8s linear infinite;
+}
+
+@keyframes spin {
+  to { transform: rotate(360deg); }
+}
+
+/* 头部 */
+.spark-board-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 24px;
+  padding-bottom: 20px;
+  border-bottom: 2px solid #e2e8f0;
+}
+
+.spark-board-header h1 {
+  font-size: 1.75rem;
+  margin: 0 0 4px 0;
+  color: #1a202c;
+}
+
+.subtitle {
+  color: #718096;
+  margin: 0;
+  font-size: 0.95rem;
+}
+
+.header-actions {
+  display: flex;
+  gap: 12px;
+}
+
+/* 统计信息 */
+.spark-stats {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(120px, 1fr));
+  gap: 16px;
+  margin-bottom: 24px;
+}
+
+.stat-item {
+  background: white;
+  padding: 16px;
+  border-radius: 8px;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 8px;
+}
+
+.stat-label {
+  font-size: 0.85rem;
+  color: #718096;
+}
+
+.stat-value {
+  font-size: 1.5rem;
+  font-weight: bold;
+  color: #2d3748;
+}
+
+.stat-blue { color: #4299e1; }
+.stat-yellow { color: #ecc94b; }
+.stat-green { color: #48bb78; }
+
+/* 按钮 */
+.btn {
+  padding: 10px 20px;
+  border-radius: 6px;
+  font-size: 0.95rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.2s;
+  border: none;
+  text-decoration: none;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.btn:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.btn-primary {
+  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+  color: white;
+}
+
+.btn-primary:hover:not(:disabled) {
+  transform: translateY(-2px);
+  box-shadow: 0 4px 12px rgba(102, 126, 234, 0.4);
+}
+
+.btn-refresh {
+  background: #edf2f7;
+  color: #4a5568;
+}
+
+.btn-refresh:hover:not(:disabled) {
+  background: #e2e8f0;
+}
+
+/* 看板列布局 */
+.spark-board-columns {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(320px, 1fr));
+  gap: 20px;
+  align-items: start;
+}
+
+.spark-column {
+  background: #edf2f7;
+  border-radius: 12px;
+  padding: 16px;
+  min-height: 400px;
+  max-height: calc(100vh - 280px);
+  overflow-y: auto;
+}
+
+.column-blue { background: #ebf8ff; }
+.column-yellow { background: #fffff0; }
+.column-green { background: #f0fff4; }
+
+.column-header {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 16px;
+  padding-bottom: 12px;
+  border-bottom: 2px solid rgba(0, 0, 0, 0.1);
+}
+
+.column-icon {
+  font-size: 1.5rem;
+}
+
+.column-header h2 {
+  font-size: 1.1rem;
+  margin: 0;
+  flex: 1;
+  color: #2d3748;
+}
+
+.column-count {
+  background: white;
+  padding: 4px 12px;
+  border-radius: 12px;
+  font-size: 0.85rem;
+  font-weight: bold;
+  color: #4a5568;
+}
+
+/* 空状态 */
+.empty-state {
+  text-align: center;
+  padding: 40px 20px;
+  color: #a0aec0;
+}
+
+.empty-state p {
+  margin: 0;
+  font-size: 0.95rem;
+}
+
+/* 火花卡片 */
+.spark-card {
+  background: white;
+  border-radius: 8px;
+  padding: 16px;
+  margin-bottom: 12px;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
+  transition: all 0.2s;
+  animation: slideIn 0.2s ease-out;
+}
+
+.spark-card.updating {
+  opacity: 0.5;
+  pointer-events: none;
+}
+
+@keyframes slideIn {
+  from {
+    opacity: 0;
+    transform: translateY(-10px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+.spark-card:hover {
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+  transform: translateY(-2px);
+}
+
+.spark-tags {
+  display: flex;
+  gap: 8px;
+  margin-bottom: 8px;
+}
+
+.tag {
+  padding: 4px 8px;
+  border-radius: 4px;
+  font-size: 0.75rem;
+  font-weight: 600;
+}
+
+.tag-project {
+  background: #bee3f8;
+  color: #2b6cb0;
+}
+
+.spark-title {
+  font-size: 1rem;
+  font-weight: 600;
+  margin: 0 0 8px 0;
+  color: #1a202c;
+  line-height: 1.4;
+}
+
+.spark-description {
+  font-size: 0.9rem;
+  color: #4a5568;
+  margin: 0 0 8px 0;
+  line-height: 1.5;
+  display: -webkit-box;
+  -webkit-line-clamp: 3;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+}
+
+.spark-comment {
+  background: #f7fafc;
+  padding: 8px;
+  border-radius: 6px;
+  font-size: 0.85rem;
+  color: #718096;
+  margin-bottom: 8px;
+  font-style: italic;
+}
+
+.spark-time {
+  font-size: 0.8rem;
+  color: #a0aec0;
+  margin-bottom: 12px;
+}
+
+.spark-actions {
+  display: flex;
+  gap: 6px;
+  flex-wrap: wrap;
+}
+
+.btn-action {
+  padding: 6px 12px;
+  border-radius: 6px;
+  font-size: 0.85rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.2s;
+  border: none;
+  background: #edf2f7;
+  color: #4a5568;
+}
+
+.btn-action:hover:not(:disabled) {
+  transform: translateY(-1px);
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.15);
+}
+
+.btn-think {
+  background: #feebc8;
+  color: #7c2d12;
+}
+
+.btn-experiment {
+  background: #c6f6d5;
+  color: #22543d;
+}
+
+.btn-captured {
+  background: #bee3f8;
+  color: #2b6cb0;
+}
+
+.btn-archive {
+  background: #d6bcfa;
+  color: #553c9a;
+}
+
+.btn-delete {
+  background: #fed7d7;
+  color: #742a2a;
+  margin-left: auto;
+}
+
+/* 响应式设计 */
+@media (max-width: 1024px) {
+  .spark-board-columns {
+    grid-template-columns: 1fr;
+  }
+
+  .spark-column {
+    max-height: none;
+  }
+}
+
+@media (max-width: 640px) {
+  .spark-board-header {
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 16px;
+  }
+
+  .header-actions {
+    width: 100%;
+    flex-direction: column;
+  }
+
+  .btn {
+    width: 100%;
+  }
+
+  .spark-stats {
+    grid-template-columns: repeat(2, 1fr);
+  }
+}
+
+/* 深色模式支持 */
+@media (prefers-color-scheme: dark) {
+  .spark-board-container {
+    background: #1a202c;
+  }
+
+  .spark-board-header h1 {
+    color: #f7fafc;
+  }
+
+  .spark-column {
+    background: #2d3748;
+  }
+
+  .column-blue { background: #2c4a66; }
+  .column-yellow { background: #5c5533; }
+  .column-green { background: #2d5a3d; }
+
+  .spark-card {
+    background: #1a202c;
+  }
+
+  .spark-title {
+    color: #f7fafc;
+  }
+
+  .spark-description {
+    color: #cbd5e0;
+  }
+}
